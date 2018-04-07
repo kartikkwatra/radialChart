@@ -24,7 +24,7 @@ class App extends Component {
     super(props);
     this.ArrivalData = [...this.props.mArrivals];
     this.LocationData = [...this.props.mLocations];
-    this.state_loc_group = [...this.props.state_loc_group];
+    this.state_month_group = [...this.props.state_month_group];
   }
 
 
@@ -50,7 +50,7 @@ class App extends Component {
   }
 
   calculateData = () => {
-    console.log(this.state_loc_group);
+    console.log(this.state_month_group);
 
     //process data
     this.ArrivalData.forEach(d => {
@@ -83,12 +83,60 @@ class App extends Component {
       d.date = parser(d.Month+"/"+d.Year);
     });
 
-    //Processing state_loc_group
-    this.state_loc_group.forEach(d => {
+    //Processing state_month_group
+    let fruit_count = [];
+    this.state_month_group.forEach(d => {
       let parser =  d3.utcParse("%B/%Y");
       d.date = parser(d.Month+"/"+d.Year);
-      // this.max_fruits_in_arc = d3.
+      fruit_count.push(d.Food_list.length);
     });
+    this.max_foods_in_arc = d3.max(fruit_count);
+
+
+    // Creating Dictionary keys
+    this.food_keys = {
+
+      Apple
+      :2,
+      'Pears Shandong'
+      :3,
+      Mango
+      :4,
+      Mosambi
+      :5,
+      Grapes
+      :6,
+      'Green Coconut'
+      :7,
+      Pomegranate
+      :8,
+      'Water Melon'
+      :9,
+      Kinnow
+      :10,
+      Papaya
+      :11,
+      Orange
+      :12,
+      'Sarda Melon'
+      :13,
+      Banana
+      :14,
+      Pineapple
+      :15,
+      Coconut
+      :16,
+      Sapota
+      :17,
+      Pumpkin
+      :18,
+      Plum
+      :19,
+      Guava
+      :20,
+      Corn
+      :21,
+    };
 
 
   }
@@ -100,22 +148,26 @@ class App extends Component {
     //exit
     this.circles.exit().remove();
 
+    console.log(this.mArrivals);
+
     //enter+update
     this.circles = this.circles.enter().append('circle')
         .attr('fill-opacity', '0.25')
         .attr('stroke-width', '3')
       .merge(this.circles)
         .attr('r', d => d.Arrival/3000)
-        .attr('fill',d => colorScale(amountScale(d.Arrival/5000)) )
-        .attr('stroke',d => colorScale(amountScale(d.Arrival/5000)) );
+        .attr('fill',d => colorScale(this.food_keys[d.FoodEng]/21) )
+        .attr('stroke',d => colorScale(this.food_keys[d.FoodEng]/21) );
 
   }
 
   renderArcs = () => {
     let min_radius = 50;
     let max_radius = this.bubble_circle_radius - 50;
-    let arc_height = 10;
-    let fruit_degree = (360/12)/10;
+    let arc_height = 5;
+    let no_of_partions = 12;
+    let month_degree = Math.PI*2/no_of_partions;
+    let food_degree = month_degree/this.max_foods_in_arc;
 
     let states_keys = {
       AP: 2,
@@ -156,6 +208,7 @@ class App extends Component {
       TS: 37,
     };
 
+
     let stateScale = d3.scaleLinear()
       .domain([0, 30])
       .range([min_radius, max_radius]);
@@ -167,22 +220,45 @@ class App extends Component {
       })
       .innerRadius( (d,i,j) => {
         let loc = j[0].parentNode.__data__.Location;
-        return stateScale(states_keys[loc]) - 10 ;
+        return stateScale(states_keys[loc]) - arc_height ;
       })
       .startAngle( (d,i,j) => {
         let month = j[0].parentNode.__data__.date.getMonth();
-        return - Math.PI/12 + (Math.PI/6)*(month) ;
+        return  -month_degree/2 + month_degree*month + i*food_degree ;
       })
       .endAngle( (d,i,j) => {
         let month = j[0].parentNode.__data__.date.getMonth();
-        return  Math.PI/12 + (Math.PI/6)*(month) ;
+        return  -month_degree/2 + month_degree*month + (i+1)*food_degree ;
+
       });
+
+
+      // Keeping this copy aside for bacground arcs. MODIFY LATER
+      // let arcGen =  d3.arc()
+      //   .outerRadius( (d,i,j) => {
+      //     let loc = j[0].parentNode.__data__.Location;
+      //     return stateScale(states_keys[loc]) ;
+      //   })
+      //   .innerRadius( (d,i,j) => {
+      //     let loc = j[0].parentNode.__data__.Location;
+      //     return stateScale(states_keys[loc]) - 10 ;
+      //   })
+      //   .startAngle( (d,i,j) => {
+      //     let month = j[0].parentNode.__data__.date.getMonth();
+      //     return - Math.PI/12 + (Math.PI/6)*(month) ;
+                // -month_degree/2 + month_degree*month
+      //   })
+      //   .endAngle( (d,i,j) => {
+      //     let month = j[0].parentNode.__data__.date.getMonth();
+      //     return  Math.PI/12 + (Math.PI/6)*(month) ;
+      // // return  month_degree/2 + month_degree*month ;
+      //   });
 
 
 
     let stateContainer = this.container.append('svg')
                           .selectAll('g')
-                            .data(this.state_loc_group)
+                            .data(this.state_month_group)
                           .enter()
                           .append('g')
 
@@ -192,10 +268,13 @@ class App extends Component {
                 .append('path')
                 .attr('transform', 'translate(' + width/2 + ',' + height/2 + ')')
                 .attr('d', arcGen ) // WHY IS TRANSITION DURATION NOT WORKING?
-                .attr('fill-opacity', 0.1)
-                .attr('fill', '#53cf8d')
+                .attr('fill-opacity', 1)
+                .attr('fill', (d,i,j) => {
+                  //let loc = j[0].parentNode.__data__.Location;
+                  return colorScale(this.food_keys[d]/21);
+                })
                 .attr('stroke', '#53cf8d')
-                .attr('stroke-width', 2 );
+                .attr('stroke-width', 0.2 );
 
   }
 

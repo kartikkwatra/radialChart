@@ -4,13 +4,13 @@ import './App.css';
 import Radial from './Radial';
 import mArrivals from './Data/monthly_arrivals';
 import mLocations from './Data/monthly_locations';
-import state_loc_group from './Data/state_loc_grouping';
+import state_month_group from './Data/state_loc_grouping';
 
 class App extends Component {
 
   render() {
     return (
-      <Radial mArrivals={mArrivals} mLocations={mLocations} state_loc_group={state_loc_group} />
+      <Radial mArrivals={mArrivals} mLocations={mLocations} state_month_group={state_month_group} />
     );
   }
 }
