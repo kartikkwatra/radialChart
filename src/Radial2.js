@@ -53,11 +53,14 @@ class App extends Component {
     console.log(this.state_month_group);
 
     //process data
+    // this.food_key = [];
     this.ArrivalData.forEach(d => {
       let parser =  d3.utcParse("%B/%Y");
       d.date = parser(d.Month+"/"+d.Year);
+      // this.food_key.push(d.FoodEng);
     });
 
+    console.log(this.food_key);
 
     this.bubble_circle_radius = width / 3 - margin.left;
 
@@ -173,6 +176,7 @@ class App extends Component {
     let sep_degree = Math.PI/360;
     let month_degree = Math.PI*2/no_of_partions  - sep_degree;
     let food_degree = month_degree/this.max_foods_in_arc;
+    food_degree = month_degree/19;
 
     // let states_keys = {
     //   AP: 2,
@@ -229,12 +233,17 @@ class App extends Component {
       })
       .startAngle( (d,i,j) => {
         let month = j[0].parentNode.__data__.date.getMonth();
-        let s_angle = -month_degree/2 + month_degree*month + i*food_degree;
+        let monthBased_startAngle = -month_degree/2 + month_degree*month;
+        let foodBased_startAngle = (this.food_keys[d]- 2)*food_degree;
+        let s_angle = monthBased_startAngle + foodBased_startAngle;
         return  i === 0 ? sep_degree + s_angle : s_angle ;
       })
       .endAngle( (d,i,j) => {
         let month = j[0].parentNode.__data__.date.getMonth();
-        return  -month_degree/2 + month_degree*month + (i+1)*food_degree ;
+        let monthBased_startAngle = -month_degree/2 + month_degree*month;
+        let foodBased_startAngle = (this.food_keys[d]- 2)*food_degree;
+        let s_angle = monthBased_startAngle + foodBased_startAngle;
+        return  s_angle + food_degree ;
 
       });
 
