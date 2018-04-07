@@ -97,7 +97,7 @@ class App extends Component {
     this.food_keys = {
 
       Apple
-      :2,
+      :21,
       'Pears Shandong'
       :3,
       Mango
@@ -119,7 +119,7 @@ class App extends Component {
       Orange
       :12,
       'Sarda Melon'
-      :13,
+      :2,
       Banana
       :14,
       Pineapple
@@ -135,7 +135,7 @@ class App extends Component {
       Guava
       :20,
       Corn
-      :21,
+      :12,
     };
 
 
@@ -273,8 +273,8 @@ class App extends Component {
                   //let loc = j[0].parentNode.__data__.Location;
                   return colorScale(this.food_keys[d]/21);
                 })
-                .attr('stroke', '#53cf8d')
-                .attr('stroke-width', 0.2 );
+                .attr('stroke', d => this.food_keys[d]/21)
+                .attr('stroke-width', 0.9 );
 
   }
 
