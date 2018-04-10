@@ -19,22 +19,22 @@ class App extends Component {
         <RadialGen
           mArrivals={mArrivals} partition_ring_group={state_month_group} //Data
           ring='Location' partition='Month' arc='Food' alignment='No' //Encodings
-          min_radius={130}  arc_height={6}  // Design
+          min_radius={130} arc_height={6}  // Design
         />
         <RadialGen
           mArrivals={mArrivals} partition_ring_group={state_month_group} //Data
           ring='Month' partition='Location' arc='Food' alignment='Yes' //Encodings
-          min_radius={130}  arc_height={6}  // Design
+          min_radius={130} arc_height={6}  // Design
         />
         <RadialGen
           mArrivals={mArrivals} partition_ring_group={state_food_group} //Data
           ring='Food' partition='Location' arc='Month' alignment='No' //Encodings
-          min_radius={130}  arc_height={6}  // Design
+          min_radius={130} arc_height={6}  // Design
         />
         <RadialGen
           mArrivals={mArrivals} partition_ring_group={month_food_group} //Data
           ring='Food' partition='Month' arc='Location' alignment='Yes' //Encodings
-          min_radius={130}  arc_height={6}  // Design
+          min_radius={130} arc_height={6}  // Design
         />
       </div>
     );
