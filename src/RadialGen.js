@@ -7,7 +7,7 @@ const width = 900;
 const height = 900;
 const margin = { left: 10,  top: 10, right: 10, bottom:10 };
 
-//d3 functions
+//d3 FUNCTIONS
 let colorScale = chroma.scale(['#53cf8d','hotpink','#9900cc','teal','#f7d283','#e85151']);
 
 class RadialGen extends Component {
@@ -22,16 +22,14 @@ class RadialGen extends Component {
     this.arc = this.props.arc; 
 
     for (let [key,value] of Object.entries(this.props)){
-      if (value === 'Food_list'){
+      if (value === 'Food'){
         this.food = key;
       }
-
+    }
     this.simulation = d3.forceSimulation()
     .force('x', d3.forceX(d => d.focusX))
     .force('y', d3.forceY(d => d.focusY))
     .stop();
-
-    }
   }
 
 
@@ -57,16 +55,16 @@ class RadialGen extends Component {
 
   calculateData = () => {
 
-    //process data
-    // this.food_key = [];
+    //PROCESSING DATA
+    this.bubble_circle_radius = width / 3 - margin.left;
+
+    //Adding Date
     this.ArrivalData.forEach(d => {
       let parser =  d3.utcParse("%B/%Y");
       d.date = parser(d.Month+"/"+d.Year);
-      // this.food_key.push(d.FoodEng);
     });
-
-    this.bubble_circle_radius = width / 3 - margin.left;
-
+    
+    // Assigning FocusX and FocusY by grouping by month
     this.mArrivals = _.chain(this.ArrivalData)
       .groupBy(d => d.date.getMonth())
       //.sortBy(d => d.date.getMonth())
@@ -88,31 +86,31 @@ class RadialGen extends Component {
     this.arc_key = [];
     this.ring_key = [];
     this.partition_key = [];
-    this.partition_ring_group.forEach(d => {
-      let parser =  d3.utcParse("%B/%Y");
-      d.date = parser(d.Month+"/"+d.Year);
-      arc_count.push(d.Food_list.length);
 
-      this.ring_key.push(d[this.ring]);
-      this.partition_key.push(d[this.partition]);
-
-      d[this.arc].forEach(d => {
-      this.arc_key.push(d);
+    // Generating arc,ring,partition key, max_arc
+    
+      this.partition_ring_group.forEach(d => {
+        let parser =  d3.utcParse("%B/%Y");
+        this.arc === 'Month' ? undefined : d.date = parser(d.Month+"/"+d.Year);
+        arc_count.push(d.Food.length);
+  
+        this.ring_key.push(d[this.ring]);
+        this.partition_key.push(d[this.partition]);
+  
+        d[this.arc].forEach(d => {
+        this.arc_key.push(d);
+        });
+  
       });
-
-    });
-
+   
     this.arc_key = _.uniqBy(this.arc_key);
     this.ring_key = _.uniqBy(this.ring_key);
     this.partition_key = _.uniqBy(this.partition_key);
-    this.food_key = this[this.food+'_key'];   
-    console.log(this.arc_key);
-    console.log(this.food_key);
-    
-     
+    this.food_key = this[this.food+'_key'];       
     this.max_arc = d3.max(arc_count);
 
 
+    // DEPRECATED FOOD KEY: GIVES CONTROL OF ORDER OF FOOD
     // Creating Dictionary keys
     // this.food_keys = {
 
@@ -158,7 +156,6 @@ class RadialGen extends Component {
     //   :12,
     // };
 
-
   }
 
   renderBubbleChart = () => {
@@ -168,7 +165,6 @@ class RadialGen extends Component {
     //exit
     this.circles.exit().remove();
 
-
     //enter+update
     this.circles = this.circles.enter().append('circle')
         .attr('fill-opacity', '0.8')
@@ -177,7 +173,6 @@ class RadialGen extends Component {
         .attr('r', d => d.Arrival/3000)
         .attr('fill', d => colorScale( this.food_key.indexOf(d.FoodEng)/20) )
         .attr('stroke', d => colorScale( this.food_key.indexOf(d.FoodEng)/20) );
-
   }
 
   renderArcs = () => {
@@ -247,7 +242,7 @@ class RadialGen extends Component {
       })
       .startAngle( (d,i,j) => {
 
-        let partition_no; // NOT DATA BUT INDEX OF KEY OF DATA: ERROR
+        let partition_no; // If partition is Month, then it accesses date, else not
         this.partition === 'Month' ? partition_no = j[0].parentNode.__data__.date.getMonth() : partition_no = this.partition_key.indexOf(j[0].parentNode.__data__[this.partition]);
         let partitionBased_startAngle = -partition_degree/2 + partition_degree*partition_no;
 
