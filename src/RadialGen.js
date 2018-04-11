@@ -5,13 +5,13 @@ import chroma from 'chroma-js';
 
 const width = 900;
 const height = 900;
-const margin = { left: 10,  top: 10, right: 10, bottom:10 };
+const margin = { left: 10, top: 10, right: 10, bottom: 10 };
 
-//d3 FUNCTIONS
+//d3 functions
 let colorScale = chroma.scale(['#53cf8d','hotpink','#9900cc','teal','#f7d283','#e85151']);
 
 class RadialGen extends Component {
-
+  
   constructor(props) {
     super(props);
     this.ArrivalData = [...this.props.mArrivals];
@@ -20,6 +20,7 @@ class RadialGen extends Component {
     this.partition = this.props.partition;
     this.ring = this.props.ring;
     this.arc = this.props.arc;
+    this.extra_partitions = this.props.extra_partitions;
 
     for (let [key, value] of Object.entries(this.props)) {
       if (value === 'Food') {
@@ -32,17 +33,16 @@ class RadialGen extends Component {
       .stop();
   }
 
-
   componentWillMount = () => {
     this.simulation.force('center', d3.forceCenter(width / 2, height / 2))
       .on('tick', this.ticked);
   }
-
+  
   componentDidMount = () => {
     this.container = d3.select(this.refs.container);
     this.calculateData();
     this.renderBubbleChart();
-    this.simulation.nodes(this.mArrivals).force('collide', d3.forceCollide(d => d.Arrival / 2500)).alpha(.9).restart();
+    this.simulation.nodes(this.mArrivals).force('collide', d3.forceCollide(d => d.Arrival / 2500)).alpha(.8).restart();
     this.renderArcs();
 
   }
@@ -91,7 +91,7 @@ class RadialGen extends Component {
     this.partition_ring_group.forEach(d => {
       let parser = d3.utcParse("%B/%Y");
       this.arc === 'Month' ? undefined : d.date = parser(d.Month + "/" + d.Year);
-      arc_count.push(d.Food.length);
+      arc_count.push(d[this.arc].length);
 
       this.ring_key.push(d[this.ring]);
       this.partition_key.push(d[this.partition]);
@@ -106,7 +106,7 @@ class RadialGen extends Component {
     this.partition_key = _.uniqBy(this.partition_key);
     this.food_key = this[this.food + '_key'];
     this.max_arc = d3.max(arc_count);
-
+    
 
     // DEPRECATED FOOD KEY: GIVES CONTROL OF ORDER OF FOOD
     // Creating Dictionary keys
@@ -177,7 +177,7 @@ class RadialGen extends Component {
     let min_radius = this.props.min_radius;
     let max_radius = this.bubble_circle_radius - 50;
     let arc_height = this.props.arc_height;
-    let no_of_partions = this.partition_key.length;
+    let no_of_partions = this.partition_key.length + this.extra_partitions;
     let sep_degree = Math.PI / 360;
     let partition_degree = Math.PI * 2 / no_of_partions - sep_degree;
     let arc_degree;
@@ -185,44 +185,44 @@ class RadialGen extends Component {
     this.props.alignment === 'Yes' ? arc_degree = partition_degree / this.arc_key.length : arc_degree = partition_degree / this.max_arc;
     //for alignment devide by C_key.length instead of max_arc
 
-    // let states_keys = {
-    //   AP: 2,
-    //   AR: 3,
-    //   AS: 4,
-    //   BR: 5,
-    //   CG: 6,
-    //   GA: 7,
-    //   GJ: 8,
-    //   HR: 9,
-    //   HP: 10,
-    //   JK: 11,
-    //   JH: 12,
-    //   KA: 13,
-    //   KL: 14,
-    //   MP: 15,
-    //   MH: 16,
-    //   MN: 17,
-    //   ML: 18,
-    //   MZ: 19,
-    //   NL: 20,
-    //   OR: 21,
-    //   PB: 22,
-    //   RJ: 23,
-    //   SK: 24,
-    //   TN: 25,
-    //   TR: 26,
-    //   UK: 27,
-    //   UP: 28,
-    //   WB: 29,
-    //   AN: 30,
-    //   CH: 31,
-    //   DH: 32,
-    //   DD: 33,
-    //   DL: 34,
-    //   LD: 35,
-    //   PY: 36,
-    //   TS: 37,
-    // };
+      // let states_keys = {
+        //   AP: 2,
+        //   AR: 3,
+        //   AS: 4,
+        //   BR: 5,
+        //   CG: 6,
+        //   GA: 7,
+        //   GJ: 8,
+        //   HR: 9,
+        //   HP: 10,
+        //   JK: 11,
+        //   JH: 12,
+        //   KA: 13,
+        //   KL: 14,
+        //   MP: 15,
+        //   MH: 16,
+        //   MN: 17,
+        //   ML: 18,
+        //   MZ: 19,
+        //   NL: 20,
+        //   OR: 21,
+        //   PB: 22,
+        //   RJ: 23,
+        //   SK: 24,
+        //   TN: 25,
+        //   TR: 26,
+        //   UK: 27,
+        //   UP: 28,
+        //   WB: 29,
+        //   AN: 30,
+        //   CH: 31,
+        //   DH: 32,
+        //   DD: 33,
+        //   DL: 34,
+        //   LD: 35,
+        //   PY: 36,
+        //   TS: 37,
+        // };
 
 
     let ringScale = d3.scaleLinear()
@@ -271,41 +271,53 @@ class RadialGen extends Component {
           return s_angle + arc_degree;
         }
       });
+
       
-      // Keeping this copy aside for bacground arcs. MODIFY LATER
-      // let arcGen =  d3.arc()
-      //   .outerRadius( (d,i,j) => {
-      //     let loc = j[0].parentNode.__data__.Location;
-      //     return ringScale(states_keys[loc]) ;
-      //   })
-      //   .innerRadius( (d,i,j) => {
-      //     let loc = j[0].parentNode.__data__.Location;
-      //     return ringScale(states_keys[loc]) - 10 ;
-      //   })
-      //   .startAngle( (d,i,j) => {
-      //     let month = j[0].parentNode.__data__.date.getMonth();
-      //     return - Math.PI/12 + (Math.PI/6)*(month) ;
-                // -partition_degree/2 + partition_degree*month
-      //   })
-      //   .endAngle( (d,i,j) => {
-      //     let month = j[0].parentNode.__data__.date.getMonth();
-      //     return  Math.PI/12 + (Math.PI/6)*(month) ;
-      // // return  partition_degree/2 + partition_degree*month ;
-      //   });
+    
+      //FIXME: Creating the bacground arcs/rings. Data will be arc_keys
+    let background_rings = d3.arc()
+      .outerRadius((d, i, j) => {
+        // let ring = j[0].parentNode.__data__[this.ring];
+        return ringScale(i);
+      })
+      .innerRadius((d, i, j) => {
+        // let ring = j[0].parentNode.__data__[this.ring];
+        return ringScale(i) - arc_height;
+      })
+      .startAngle(0)
+      .endAngle(Math.PI * 2);
 
 
-
-    let stateContainer = this.container.append('svg')
-      .selectAll('g')
-        .data(this.partition_ring_group)
+    let arcChartContainer = this.container.append('svg');
+    
+    // FIXME: 
+    let x = arcChartContainer.append('g').attr('class','rings')
+      .selectAll('path')
+        .data(this.ring_key)
       .enter()
-      .append('g')
+        .append('path')
+        .attr('transform', 'translate(' + width / 2 + ',' + height / 2 + ')')        
+        .attr('d', background_rings)
+        .attr('fill','hotpink')
+        .attr('fill-opacity',0.3);
+
+        console.log(this.ring_key);
+        
+    
 
     let div = d3.select("body").append("div")
       .attr("class", "tooltip")
-      .style("opacity", 0);
+      .style("opacity", 0);    
 
-    let x = stateContainer.selectAll('path')
+    // Adding groups and Data for arcs (this.arc)
+    let minor_arcContainer = arcChartContainer.selectAll('g.arcs')
+        .data(this.partition_ring_group)
+      .enter()
+        .append('g')
+        .attr('class','arcs');
+    
+    // FIXME:
+    minor_arcContainer.selectAll('path')
         .data(d => d[this.arc])
       .enter()
       .append('path')
