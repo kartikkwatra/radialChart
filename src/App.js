@@ -42,8 +42,8 @@ class App extends Component {
           //Design
           min_radius={130}
           arc_height={10}
-          extra_partitions={1}
-          band_gap={2}
+          extra_partitions={1} //Can't be zero now TODO: Remove from props
+          bg_ring_gap={2}
         />
         {/* <RadialGen 
           // Here you can give some logical grouping to arc i.e States to support decoding by reducing colors

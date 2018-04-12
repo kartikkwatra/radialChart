@@ -184,7 +184,11 @@ class RadialCustom extends Component {
   };
 
   renderBubbleChart = () => {
-    this.circles = this.container.selectAll("circle").data(this.mArrivals);
+    this.circles = this.container
+      .append("g")
+      .attr("id", "bubble_group")
+      .selectAll("circle")
+      .data(this.mArrivals);
 
     //exit
     this.circles.exit().remove();
@@ -205,10 +209,11 @@ class RadialCustom extends Component {
     let min_radius = this.props.min_radius;
     let max_radius = this.bubble_circle_radius - 35;
     let arc_height = this.props.arc_height;
-    let no_of_partions = this.partition_key.length + this.extra_partitions;
+    let no_of_partitions = this.partition_key.length + this.extra_partitions;
     let sep_degree = Math.PI / 360;
-    let partition_degree = Math.PI * 2 / no_of_partions - sep_degree;
+    let partition_degree = Math.PI * 2 / no_of_partitions;
     let arc_degree;
+    let rotation_degree = -partition_degree / 2;
 
     this.props.alignment === "Yes"
       ? (arc_degree = partition_degree / this.arc_key.length)
@@ -276,16 +281,23 @@ class RadialCustom extends Component {
           : (partition_no = this.partition_key.indexOf(
               j[0].parentNode.__data__[this.partition]
             ));
+
         let partitionBased_startAngle =
           -partition_degree / 2 + partition_degree * partition_no;
 
+        if (partition_no >= 7) {
+          partitionBased_startAngle += partition_degree;
+        }
+
         if (this.props.alignment === "Yes") {
           let arcBased_startAngle = this.arc_key.indexOf(d) * arc_degree;
-          let s_angle = partitionBased_startAngle + arcBased_startAngle;
+          let s_angle =
+            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
           return i === 0 ? sep_degree + s_angle : s_angle;
         } else if (this.props.alignment === "No") {
           let arcBased_startAngle = i * arc_degree;
-          let s_angle = partitionBased_startAngle + arcBased_startAngle;
+          let s_angle =
+            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
           return i === 0 ? sep_degree + s_angle : s_angle;
         }
       })
@@ -299,58 +311,90 @@ class RadialCustom extends Component {
         let partitionBased_startAngle =
           -partition_degree / 2 + partition_degree * partition_no;
 
+        if (partition_no >= 7) {
+          partitionBased_startAngle += partition_degree;
+        }
+
         if (this.props.alignment === "Yes") {
           let arcBased_startAngle = this.arc_key.indexOf(d) * arc_degree;
-          let s_angle = partitionBased_startAngle + arcBased_startAngle;
+          let s_angle =
+            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
           return s_angle + arc_degree;
         } else if (this.props.alignment === "No") {
           let arcBased_startAngle = i * arc_degree;
-          let s_angle = partitionBased_startAngle + arcBased_startAngle;
+          let s_angle =
+            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
           return s_angle + arc_degree;
         }
       });
 
-    //FIXME: Creating the bacground arcs/rings. Data will be arc_keys
+    //FIXME: Creating the 13 parts bacground arcs/rings. Data will be arc_keys
+    // Remember: Partition_no is different in bg_ringGen (starts with 0 due to d3.range) and arcGen (starts with 1 due to getMonth)
     let bg_ringGen = d3
       .arc()
       .outerRadius((d, i, j) => {
-        // let ring = j[0].parentNode.__data__[this.ring];
-        return ringScale(i) + this.props.band_gap;
+        // let sector_no = j[0].parentNode.__data__ ;
+        return ringScale(i) + this.props.bg_ring_gap;
       })
       .innerRadius((d, i, j) => {
         // let ring = j[0].parentNode.__data__[this.ring];
-        return ringScale(i) - arc_height - this.props.band_gap;
+        return ringScale(i) - arc_height - this.props.bg_ring_gap;
       })
-      .startAngle(0)
-      .endAngle(Math.PI * 2);
+      .startAngle((d, i, j) => {
+        let partition_no = j[0].parentNode.__data__;
+        let s_angle =
+          -partition_degree / 2 +
+          partition_degree * partition_no +
+          rotation_degree;
+        return sep_degree + s_angle;
+      })
+      .endAngle((d, i, j) => {
+        let partition_no = j[0].parentNode.__data__;
+        let s_angle =
+          -partition_degree / 2 +
+          partition_degree * partition_no +
+          rotation_degree;
+        return partition_degree + s_angle;
+      });
 
     let arcChartContainer = this.container.append("svg");
 
-    // FIXME: Appending Background Rings
+    // 13 parts Background Rings
     let bg_ring = arcChartContainer
+      .selectAll("g")
+      .data(d3.range(13))
+      .enter()
       .append("g")
       .attr("class", "rings")
       .selectAll("path")
       .data(this.ring_key)
       .enter()
       .append("path")
-      .attr("id", (d, i) => "id" + i)
+      .attr("id", (d, i, j) => {
+        let partition_no = j[0].parentNode.__data__;
+        return "partition" + partition_no + "ring" + i;
+      })
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
       .attr("d", bg_ringGen)
-      .attr("fill", "hotpink")
-      .attr("fill-opacity", 0.8);
+      .attr("fill", "blue")
+      .attr("fill-opacity", 0.06);
 
     let food_ring_annotations = arcChartContainer
       .selectAll("text")
       .data(this.ring_key)
       .enter()
       .append("text")
+      .style('fill', 'blue')
+      // .style('stroke','blue')
       .attr("dy", 11)
       .attr("font-size", 14)
       .append("textPath")
-      .attr("xlink:href", (d, i) => "#id" + i)
+      .attr("xlink:href", (d, i) => {
+        // let partition_no = j[0].parentNode.__data__;
+        return "#partition7" + "ring" + i;
+      })
+      .attr("startOffset", "18%")
       .style("text-anchor", "middle")
-      .attr("startOffset", "50%")
       .text(d => d);
 
     let div = d3
@@ -367,6 +411,8 @@ class RadialCustom extends Component {
       .append("g")
       .attr("class", "arcs");
 
+    // let annotation_partition =
+
     // Minor Arcs
     minor_arcContainer
       .selectAll("path")
@@ -375,8 +421,8 @@ class RadialCustom extends Component {
       .append("path")
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
       .attr("d", arcGen) // WHY IS TRANSITION DURATION NOT WORKING?
-      .attr("fill-opacity", 0.5)
-      .attr("stroke-opacity", 0.6)
+      .attr("fill-opacity", 0.7)
+      .attr("stroke-opacity", 0.9)
       .attr("fill", (d, i, j) => {
         //let loc = j[0].parentNode.__data__.Location;
         return colorScale(this.arc_key.indexOf(d) / this.arc_key.length);
