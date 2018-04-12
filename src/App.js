@@ -42,7 +42,7 @@ class App extends Component {
           //Design
           min_radius={130}
           arc_height={10}
-          extra_partitions={1} //Can't be zero now TODO: Remove from props
+          // extra_partitions={1} //Can't be zero now TODO: Remove from props
           bg_ring_gap={2}
         />
         {/* <RadialGen 

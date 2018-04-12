@@ -53,7 +53,7 @@ class RadialCustom extends Component {
     this.renderBubbleChart();
     this.simulation
       .nodes(this.mArrivals)
-      .force("collide", d3.forceCollide(d => d.Arrival / 2500))
+      .force("collide", d3.forceCollide(d => Math.log(d.Arrival * 2))) //TODO: Creating a log like scale
       .alpha(0.8)
       .restart();
     this.renderArcs();
@@ -200,7 +200,7 @@ class RadialCustom extends Component {
       .attr("fill-opacity", "0.8")
       .attr("stroke-width", "3")
       .merge(this.circles)
-      .attr("r", d => d.Arrival / 3000)
+      .attr("r", d => Math.log(d.Arrival * 2)) //TODO: Creating a log like scale
       .attr("fill", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20))
       .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
   };
@@ -209,11 +209,13 @@ class RadialCustom extends Component {
     let min_radius = this.props.min_radius;
     let max_radius = this.bubble_circle_radius - 35;
     let arc_height = this.props.arc_height;
-    let no_of_partitions = this.partition_key.length + this.extra_partitions;
+    let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
     let sep_degree = Math.PI / 360;
-    let partition_degree = Math.PI * 2 / no_of_partitions;
+    let annotation_partition_degree = Math.PI / 3;
+    let available_degree = Math.PI * 2 - annotation_partition_degree;
+    let partition_degree = available_degree / no_of_partitions;
     let arc_degree;
-    let rotation_degree = -partition_degree / 2;
+    let rotation_degree = partition_degree / 2; //TODO: Centering the annotation_partition, hence rotating all   -partition_degree / 2;
 
     this.props.alignment === "Yes"
       ? (arc_degree = partition_degree / this.arc_key.length)
@@ -264,7 +266,7 @@ class RadialCustom extends Component {
       .domain([0, this.ring_key.length])
       .range([min_radius, max_radius]);
 
-    let arcGen = d3
+    let minor_arcGen = d3
       .arc()
       .outerRadius((d, i, j) => {
         let ring = j[0].parentNode.__data__[this.ring];
@@ -285,8 +287,8 @@ class RadialCustom extends Component {
         let partitionBased_startAngle =
           -partition_degree / 2 + partition_degree * partition_no;
 
-        if (partition_no >= 7) {
-          partitionBased_startAngle += partition_degree;
+        if (partition_no >= 6) {
+          partitionBased_startAngle += annotation_partition_degree;
         }
 
         if (this.props.alignment === "Yes") {
@@ -311,8 +313,8 @@ class RadialCustom extends Component {
         let partitionBased_startAngle =
           -partition_degree / 2 + partition_degree * partition_no;
 
-        if (partition_no >= 7) {
-          partitionBased_startAngle += partition_degree;
+        if (partition_no >= 6) {
+          partitionBased_startAngle += annotation_partition_degree;
         }
 
         if (this.props.alignment === "Yes") {
@@ -328,8 +330,8 @@ class RadialCustom extends Component {
         }
       });
 
-    //FIXME: Creating the 13 parts bacground arcs/rings. Data will be arc_keys
-    // Remember: Partition_no is different in bg_ringGen (starts with 0 due to d3.range) and arcGen (starts with 1 due to getMonth)
+    //FIXME: Creating the 13 parts background arcs/rings. Data will be arc_keys
+    // Remember: Partition_no is different in bg_ringGen (starts with 0 due to d3.range) and minor_arcGen (starts with 1 due to getMonth)
     let bg_ringGen = d3
       .arc()
       .outerRadius((d, i, j) => {
@@ -346,6 +348,11 @@ class RadialCustom extends Component {
           -partition_degree / 2 +
           partition_degree * partition_no +
           rotation_degree;
+
+        if (partition_no >= 7) {
+          s_angle += annotation_partition_degree - partition_degree;
+        }
+
         return sep_degree + s_angle;
       })
       .endAngle((d, i, j) => {
@@ -354,7 +361,15 @@ class RadialCustom extends Component {
           -partition_degree / 2 +
           partition_degree * partition_no +
           rotation_degree;
-        return partition_degree + s_angle;
+          // pehle end angle shift hoga, fir start angle shift hoga (7 onwards), you are drwaing with one pen,one hand at a time, not two lines simultaneously.
+        let end_angle = s_angle + partition_degree; //Partition no 6 is annotation_partition
+        if (partition_no === 6) {  
+          end_angle = s_angle + annotation_partition_degree;
+        } else if (partition_no > 6) {
+          end_angle += annotation_partition_degree - partition_degree;
+        }
+
+        return end_angle;
       });
 
     let arcChartContainer = this.container.append("svg");
@@ -377,21 +392,21 @@ class RadialCustom extends Component {
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
       .attr("d", bg_ringGen)
       .attr("fill", "blue")
-      .attr("fill-opacity", 0.06);
+      .attr("fill-opacity", 0.08);
 
     let food_ring_annotations = arcChartContainer
       .selectAll("text")
       .data(this.ring_key)
       .enter()
       .append("text")
-      .style('fill', 'blue')
+      .style("fill", "blue")
       // .style('stroke','blue')
       .attr("dy", 11)
       .attr("font-size", 14)
       .append("textPath")
       .attr("xlink:href", (d, i) => {
         // let partition_no = j[0].parentNode.__data__;
-        return "#partition7" + "ring" + i;
+        return "#partition6" + "ring" + i;
       })
       .attr("startOffset", "18%")
       .style("text-anchor", "middle")
@@ -411,8 +426,6 @@ class RadialCustom extends Component {
       .append("g")
       .attr("class", "arcs");
 
-    // let annotation_partition =
-
     // Minor Arcs
     minor_arcContainer
       .selectAll("path")
@@ -420,7 +433,7 @@ class RadialCustom extends Component {
       .enter()
       .append("path")
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
-      .attr("d", arcGen) // WHY IS TRANSITION DURATION NOT WORKING?
+      .attr("d", minor_arcGen) // WHY IS TRANSITION DURATION NOT WORKING?
       .attr("fill-opacity", 0.7)
       .attr("stroke-opacity", 0.9)
       .attr("fill", (d, i, j) => {
