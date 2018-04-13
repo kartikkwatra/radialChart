@@ -40,6 +40,7 @@ class App extends Component {
           arc="Location"
           alignment="No"
           //Design
+          bubble_circle_radius = {320} //Governs the size of the whole radial proportionally
           min_radius={130}
           arc_height={10}
           // extra_partitions={1} //Can't be zero now TODO: Remove from props

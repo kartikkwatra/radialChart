@@ -7,6 +7,11 @@ const width = 900;
 const height = 900;
 const margin = { left: 10, top: 10, right: 10, bottom: 10 };
 
+//controlled growth curve function
+// let cgf = (x) => {
+//   return Math.abs(x/(70-x));
+// }
+
 //d3 functions
 let colorScale = chroma.scale([
   "#53cf8d",
@@ -53,7 +58,7 @@ class RadialCustom extends Component {
     this.renderBubbleChart();
     this.simulation
       .nodes(this.mArrivals)
-      .force("collide", d3.forceCollide(d => Math.log(d.Arrival * 2))) //TODO: Creating a log like scale
+      .force("collide", d3.forceCollide(d => d.Arrival / 3000)) //TODO: Creating a log like scale
       .alpha(0.8)
       .restart();
     this.renderArcs();
@@ -67,7 +72,7 @@ class RadialCustom extends Component {
 
   calculateData = () => {
     //PROCESSING DATA
-    this.bubble_circle_radius = width / 2.5 - margin.left;
+    // this.bubble_circle_radius = width / 2.5 - margin.left;
 
     //FIXME: Proper Filtering data flow. Ring filter-er
     //FIXME: Arrival Data not filtered based on rings!
@@ -97,8 +102,8 @@ class RadialCustom extends Component {
         return _.map(mArrivals, arr => {
           let month = arr.date.getMonth();
           let angle = 2 * Math.PI / 12 * month - Math.PI / 2;
-          let focusX = this.bubble_circle_radius * Math.cos(angle);
-          let focusY = this.bubble_circle_radius * Math.sin(angle);
+          let focusX = this.props.bubble_circle_radius * Math.cos(angle);
+          let focusY = this.props.bubble_circle_radius * Math.sin(angle);
           return Object.assign(arr, {
             focusX,
             focusY
@@ -110,6 +115,7 @@ class RadialCustom extends Component {
 
     //Processing partition_ring_group
     let arc_count = []; //for maximum number of arcs possible
+    // FIXME: these keys are temporary solutions for things like color and arrangement (maybe others). Fix it soon
     this.arc_key = [];
     this.ring_key = [];
     this.partition_key = [];
@@ -117,22 +123,29 @@ class RadialCustom extends Component {
     // Generating arc,ring,partition key, max_arc
     this.partition_ring_group.forEach(d => {
       let parser = d3.utcParse("%B/%Y");
-      this.arc === "Month"
-        ? undefined
-        : (d.date = parser(d.Month + "/" + d.Year));
-      arc_count.push(d[this.arc].length);
+      if (this.arc !== "Month") d.date = parser(d.Month + "/" + d.Year);
 
+      arc_count.push(d[this.arc].length);
       this.ring_key.push(d[this.ring]);
-      this.partition_key.push(d[this.partition]);
+
+      if (this.partition === "Month") {
+        this.partition_key[d.date.getMonth()] = d.Month;
+      } else {
+        this.partition_key.push(d[this.partition]); // Partition key not logically sorted.
+      }
 
       d[this.arc].forEach(d => {
         this.arc_key.push(d);
       });
     });
 
+    console.log(this.partition_key);
+
     this.arc_key = _.uniqBy(this.arc_key);
     this.ring_key = _.uniqBy(this.ring_key);
-    this.partition_key = _.uniqBy(this.partition_key);
+    if (this.partition !== "Month")
+      this.partition_key = _.uniqBy(this.partition_key);
+
     this.food_key = this[this.food + "_key"];
     this.max_arc = d3.max(arc_count);
 
@@ -200,14 +213,14 @@ class RadialCustom extends Component {
       .attr("fill-opacity", "0.8")
       .attr("stroke-width", "3")
       .merge(this.circles)
-      .attr("r", d => Math.log(d.Arrival * 2)) //TODO: Creating a log like scale
+      .attr("r", d => d.Arrival / 3000) //TODO: Creating a log like scale
       .attr("fill", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20))
       .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
   };
 
   renderArcs = () => {
     let min_radius = this.props.min_radius;
-    let max_radius = this.bubble_circle_radius - 35;
+    let max_radius = this.props.bubble_circle_radius - 35;
     let arc_height = this.props.arc_height;
     let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
     let sep_degree = Math.PI / 360;
@@ -222,7 +235,8 @@ class RadialCustom extends Component {
       : (arc_degree = partition_degree / this.max_arc);
     //for alignment devide by C_key.length instead of max_arc
 
-    // let states_keys = {
+    // DEPRECATED STATE KEYS
+    //let states_keys = {
     //   AP: 2,
     //   AR: 3,
     //   AS: 4,
@@ -281,6 +295,7 @@ class RadialCustom extends Component {
         this.partition === "Month"
           ? (partition_no = j[0].parentNode.__data__.date.getMonth())
           : (partition_no = this.partition_key.indexOf(
+              // FIXME: Non-Month Partitions being arranged based on partition_key
               j[0].parentNode.__data__[this.partition]
             ));
 
@@ -361,9 +376,9 @@ class RadialCustom extends Component {
           -partition_degree / 2 +
           partition_degree * partition_no +
           rotation_degree;
-          // pehle end angle shift hoga, fir start angle shift hoga (7 onwards), you are drwaing with one pen,one hand at a time, not two lines simultaneously.
+        // pehle end angle shift hoga, fir start angle shift hoga (7 onwards), you are drwaing with one pen,one hand at a time, not two lines simultaneously.
         let end_angle = s_angle + partition_degree; //Partition no 6 is annotation_partition
-        if (partition_no === 6) {  
+        if (partition_no === 6) {
           end_angle = s_angle + annotation_partition_degree;
         } else if (partition_no > 6) {
           end_angle += annotation_partition_degree - partition_degree;
@@ -381,6 +396,7 @@ class RadialCustom extends Component {
       .enter()
       .append("g")
       .attr("class", "rings")
+      .attr("id", d => "partition" + d)
       .selectAll("path")
       .data(this.ring_key)
       .enter()
@@ -394,22 +410,90 @@ class RadialCustom extends Component {
       .attr("fill", "blue")
       .attr("fill-opacity", 0.08);
 
+    // FIXME:
+    const ringid = this.ring_key.length - 1;
+
+    // Appending Partition Annotations
+    d3
+      .selectAll("g.rings")
+      .append("text")
+      .attr("class", "partition_annot")
+      .each((d, i, j) => {
+        d3
+          .select(j[i])
+          .append("textPath")
+          // .attr("startOffset", "50%")
+          // .style("text-anchor", "middle")
+          .attr("xlink:href", "#partition" + d + "ring" + ringid)
+          .text(d => {
+            // Code for Jumping the annotation partition
+            if (d === 6) return null;
+            else if (d > 6) return this.partition_key[d - 1];
+            else return this.partition_key[d];
+          });
+      });
+
+    d3
+      .select("g#partition6") //TODO: Change 6 incase you change orientation
+      .selectAll("path")
+      .each(function(d, i) {
+        //Search pattern for everything between the start and the first capital L
+        var firstArcSection = /(^.+?)L/;
+
+        //Grab everything up to the first Line statement
+        var newArc = firstArcSection.exec(d3.select(this).attr("d"))[1];
+
+        //Replace all the commas so that IE can handle it
+        newArc = newArc.replace(/,/g, " ");
+
+        //If the end angle lies beyond a quarter of a circle (90 degrees or pi/2)
+        //flip the end and start position
+
+        //Everything between the capital M and first capital A
+        var startLoc = /M(.*?)A/;
+        //Everything between the capital A and 0 0 1
+        var middleLoc = /A(.*?)0 0 1/;
+        //Everything between the 0 0 1 and the end of the string (denoted by $)
+        var endLoc = /0 0 1 (.*?)$/;
+        //Flip the direction of the arc by switching the start and end point
+        //and using a 0 (instead of 1) sweep flag
+        var newStart = endLoc.exec(newArc)[1];
+        var newEnd = startLoc.exec(newArc)[1];
+        var middleSec = middleLoc.exec(newArc)[1];
+
+        //Build up the new arc notation, set the sweep-flag to 0
+        newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
+
+        //Create a new invisible arc that the text can flow along
+        d3
+          .select("g#partition6")
+          .append("path")
+          .attr("class", "hiddenArcs")
+          .attr("id", "hiddenArc" + i)
+          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+          .attr("d", newArc)
+          .style("fill", "none");
+      });
+
     let food_ring_annotations = arcChartContainer
-      .selectAll("text")
+      .append("svg")
+      .attr("class", "ring_annot_container")
+      .selectAll("text.ring_annot")
       .data(this.ring_key)
       .enter()
       .append("text")
+      .attr("class", "ring_annot")
       .style("fill", "blue")
-      // .style('stroke','blue')
-      .attr("dy", 11)
+      .attr("x", 1)
+      .attr("dy", -3)
       .attr("font-size", 14)
       .append("textPath")
+      .attr("startOffset", "50%")
+      .style("text-anchor", "middle")
       .attr("xlink:href", (d, i) => {
         // let partition_no = j[0].parentNode.__data__;
-        return "#partition6" + "ring" + i;
+        return "#hiddenArc" + i;
       })
-      .attr("startOffset", "18%")
-      .style("text-anchor", "middle")
       .text(d => d);
 
     let div = d3
