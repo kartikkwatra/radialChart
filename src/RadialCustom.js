@@ -61,13 +61,13 @@ class RadialCustom extends Component {
       .force("collide", d3.forceCollide(d => d.Arrival / 3000)) //TODO: Creating a log like scale
       .alpha(0.8)
       .restart();
-    this.renderArcs();
+    this.renderArcChart();
   };
 
   componentDidUpdate = () => {
     this.calculateData();
     this.renderBubbleChart();
-    this.renderArcs();
+    this.renderArcChart();
   };
 
   calculateData = () => {
@@ -218,13 +218,13 @@ class RadialCustom extends Component {
       .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
   };
 
-  renderArcs = () => {
+  renderArcChart = () => {
     let min_radius = this.props.min_radius;
     let max_radius = this.props.bubble_circle_radius - 35;
-    let arc_height = this.props.arc_height;
+    const arc_height = this.props.arc_height;
     let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
     let sep_degree = Math.PI / 360;
-    let annotation_partition_degree = Math.PI / 3;
+    let annotation_partition_degree = Math.PI / 2.2;
     let available_degree = Math.PI * 2 - annotation_partition_degree;
     let partition_degree = available_degree / no_of_partitions;
     let arc_degree;
@@ -345,8 +345,7 @@ class RadialCustom extends Component {
         }
       });
 
-    //FIXME: Creating the 13 parts background arcs/rings. Data will be arc_keys
-    // Remember: Partition_no is different in bg_ringGen (starts with 0 due to d3.range) and minor_arcGen (starts with 1 due to getMonth)
+    //FIXME: Done for now. Creating the 13 parts background rings. Data will be ring_keys
     let bg_ringGen = d3
       .arc()
       .outerRadius((d, i, j) => {
@@ -389,18 +388,61 @@ class RadialCustom extends Component {
 
     let arcChartContainer = this.container.append("svg");
 
+    let arcManipulator = (selection, reverseFlag = 1) => {
+      // Docstring:
+      // Arg: D3 Selection of path element to be manipulated
+      // Returns the reversed newArc
+      // /Docstring
+
+      //Search pattern for everything between the start and the first capital L
+      let firstArcSection = /(^.+?)L/;
+
+      //Grab everything up to the first Line statement //Changed select(this) to j[i]
+      let newArc = firstArcSection.exec(selection.attr("d"))[1];
+
+      //Replace all the commas so that IE can handle it
+      newArc = newArc.replace(/,/g, " ");
+
+      if (reverseFlag) {
+        //If the angle lies beyond a quarter of a circle (90 degrees or pi/2)
+        //flip the end and start position
+
+        //Everything between the capital M and first capital A
+        let startLoc = /M(.*?)A/;
+        //Everything between the capital A and 0 0 1
+        let middleLoc = /A(.*?)0 0 1/;
+        //Everything between the 0 0 1 and the end of the string (denoted by $)
+        let endLoc = /0 0 1 (.*?)$/;
+        //Flip the direction of the arc by switching the start and end point
+        //and using a 0 (instead of 1) sweep flag
+        let newStart = endLoc.exec(newArc)[1];
+        let newEnd = startLoc.exec(newArc)[1];
+        let middleSec = middleLoc.exec(newArc)[1];
+
+        //Build up the new arc notation, set the sweep-flag to 0
+        newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
+      }
+
+      return newArc;
+    };
+
     // 13 parts Background Rings
+    const lastringid = this.ring_key.length - 1;
     let bg_ring = arcChartContainer
       .selectAll("g")
       .data(d3.range(13))
       .enter()
       .append("g")
       .attr("class", "rings")
-      .attr("id", d => "partition" + d)
+      .attr("id", d => "partition" + d);
+
+    //Appending Visible path for bg rings
+    bg_ring
       .selectAll("path")
       .data(this.ring_key)
       .enter()
       .append("path")
+      .attr("class", "visibleArcs")
       .attr("id", (d, i, j) => {
         let partition_no = j[0].parentNode.__data__;
         return "partition" + partition_no + "ring" + i;
@@ -410,59 +452,74 @@ class RadialCustom extends Component {
       .attr("fill", "blue")
       .attr("fill-opacity", 0.08);
 
-    // FIXME:
-    const ringid = this.ring_key.length - 1;
+    bg_ring.each((d, i, j) => {
+      let selector = "path#partition" + d + "ring" + lastringid;
+      let selection_of_pathElem = d3.select(selector);
+      let newArc;
+      if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) {
+        newArc = arcManipulator(selection_of_pathElem, 1);
+      } else {
+        newArc = arcManipulator(selection_of_pathElem, 0);
+      }
 
+      // let firstArcSection = /(^.+?)L/;
+      // let newArc = firstArcSection.exec(selection_of_pathElem.attr("d"))[1];
+      // newArc = newArc.replace(/,/g, " ");
+      // let startLoc = /M(.*?)A/;
+      // let middleLoc = /A(.*?)0 0 1/;
+      // let endLoc = /0 0 1 (.*?)$/;
+      // let newStart = endLoc.exec(newArc)[1];
+      // let newEnd = startLoc.exec(newArc)[1];
+      // let middleSec = middleLoc.exec(newArc)[1];
+      // newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
+
+      //Appending hidden arc
+      // let selector = "g#partition" + i;
+      d3
+        .select(j[i])
+        .append("path")
+        .attr("class", "hiddenArcs")
+        .attr("id", (d, i, j) => {
+          // let partition_no = j[0].parentNode.__data__;
+          return "HiddenPartition" + d + "ring" + lastringid;
+        })
+        .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+        .attr("d", newArc)
+        .style("fill", "none");
+    });
+
+    //Challeng
     // Appending Partition Annotations
     d3
       .selectAll("g.rings")
       .append("text")
       .attr("class", "partition_annot")
+      .attr("dy", d => {
+        // Code for adjusting the dy for the reversed arcs (partition 5 & 7)
+        if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return arc_height + 5;
+        else return -5;
+      })
       .each((d, i, j) => {
         d3
           .select(j[i])
           .append("textPath")
-          // .attr("startOffset", "50%")
-          // .style("text-anchor", "middle")
-          .attr("xlink:href", "#partition" + d + "ring" + ringid)
+          .attr("startOffset", "50%")
+          .style("text-anchor", "middle")
+          .attr("xlink:href", "#HiddenPartition" + d + "ring" + lastringid)
           .text(d => {
-            // Code for Jumping the annotation partition
+            // Code for Jumping the annotation partition i.e the partition with Food Names in rings
             if (d === 6) return null;
             else if (d > 6) return this.partition_key[d - 1];
             else return this.partition_key[d];
           });
       });
 
+    //Appending hidden arcs for Annot Partition
     d3
       .select("g#partition6") //TODO: Change 6 incase you change orientation
-      .selectAll("path")
-      .each(function(d, i) {
-        //Search pattern for everything between the start and the first capital L
-        var firstArcSection = /(^.+?)L/;
-
-        //Grab everything up to the first Line statement
-        var newArc = firstArcSection.exec(d3.select(this).attr("d"))[1];
-
-        //Replace all the commas so that IE can handle it
-        newArc = newArc.replace(/,/g, " ");
-
-        //If the end angle lies beyond a quarter of a circle (90 degrees or pi/2)
-        //flip the end and start position
-
-        //Everything between the capital M and first capital A
-        var startLoc = /M(.*?)A/;
-        //Everything between the capital A and 0 0 1
-        var middleLoc = /A(.*?)0 0 1/;
-        //Everything between the 0 0 1 and the end of the string (denoted by $)
-        var endLoc = /0 0 1 (.*?)$/;
-        //Flip the direction of the arc by switching the start and end point
-        //and using a 0 (instead of 1) sweep flag
-        var newStart = endLoc.exec(newArc)[1];
-        var newEnd = startLoc.exec(newArc)[1];
-        var middleSec = middleLoc.exec(newArc)[1];
-
-        //Build up the new arc notation, set the sweep-flag to 0
-        newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
+      .selectAll("path.visibleArcs")
+      .each((d, i, j) => {
+        let newArc = arcManipulator(d3.select(j[i]));
 
         //Create a new invisible arc that the text can flow along
         d3
