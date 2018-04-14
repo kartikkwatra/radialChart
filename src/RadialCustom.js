@@ -33,6 +33,7 @@ class RadialCustom extends Component {
     this.arc = this.props.arc;
     this.extra_partitions = this.props.extra_partitions;
 
+    //TODO: What is this?
     for (let [key, value] of Object.entries(this.props)) {
       if (value === "Food") {
         this.food = key;
@@ -82,7 +83,7 @@ class RadialCustom extends Component {
     this.partition_ring_group.forEach(d => this.key_filter.push(d[this.ring]));
     this.key_filter = _.uniqBy(this.key_filter);
     this.partition_ring_group = this.partition_ring_group.filter(
-      d => this.key_filter.indexOf(d[this.ring]) < 10
+      d => this.key_filter.indexOf(d[this.ring]) <= 14
     );
     console.log(this.partition_ring_group);
 
@@ -295,8 +296,8 @@ class RadialCustom extends Component {
         this.partition === "Month"
           ? (partition_no = j[0].parentNode.__data__.date.getMonth())
           : (partition_no = this.partition_key.indexOf(
-              // FIXME: Non-Month Partitions being arranged based on partition_key
               j[0].parentNode.__data__[this.partition]
+              // FIXME: Non-Month Partitions being arranged based on partition_key
             ));
 
         let partitionBased_startAngle =
@@ -438,19 +439,21 @@ class RadialCustom extends Component {
 
     //Appending Visible path for bg rings
     bg_ring
-      .selectAll("path")
+      .selectAll("path.visible_bg_Arc")
       .data(this.ring_key)
       .enter()
       .append("path")
-      .attr("class", "visibleArcs")
+      .attr("class", "visible_bg_Arcs")
       .attr("id", (d, i, j) => {
         let partition_no = j[0].parentNode.__data__;
         return "partition" + partition_no + "ring" + i;
       })
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
       .attr("d", bg_ringGen)
-      .attr("fill", "blue")
-      .attr("fill-opacity", 0.08);
+      .attr("fill", "grey")
+      .attr("fill-opacity", 0.07);
+    // .attr("stroke", "grey")
+    // .attr("stroke-width", 0.15);
 
     bg_ring.each((d, i, j) => {
       let selector = "path#partition" + d + "ring" + lastringid;
@@ -461,18 +464,6 @@ class RadialCustom extends Component {
       } else {
         newArc = arcManipulator(selection_of_pathElem, 0);
       }
-
-      // let firstArcSection = /(^.+?)L/;
-      // let newArc = firstArcSection.exec(selection_of_pathElem.attr("d"))[1];
-      // newArc = newArc.replace(/,/g, " ");
-      // let startLoc = /M(.*?)A/;
-      // let middleLoc = /A(.*?)0 0 1/;
-      // let endLoc = /0 0 1 (.*?)$/;
-      // let newStart = endLoc.exec(newArc)[1];
-      // let newEnd = startLoc.exec(newArc)[1];
-      // let middleSec = middleLoc.exec(newArc)[1];
-      // newArc = "M" + newStart + "A" + middleSec + "0 0 0 " + newEnd;
-
       //Appending hidden arc
       // let selector = "g#partition" + i;
       d3
@@ -488,7 +479,6 @@ class RadialCustom extends Component {
         .style("fill", "none");
     });
 
-    //Challeng
     // Appending Partition Annotations
     d3
       .selectAll("g.rings")
@@ -514,10 +504,10 @@ class RadialCustom extends Component {
           });
       });
 
-    //Appending hidden arcs for Annot Partition
+    //Appending hidden arcs for Annot Partition (partition 6)
     d3
       .select("g#partition6") //TODO: Change 6 incase you change orientation
-      .selectAll("path.visibleArcs")
+      .selectAll("path.visible_bg_Arcs")
       .each((d, i, j) => {
         let newArc = arcManipulator(d3.select(j[i]));
 
@@ -530,6 +520,30 @@ class RadialCustom extends Component {
           .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
           .attr("d", newArc)
           .style("fill", "none");
+      })
+      .on("mouseover", (d, i, j) => {
+        //Trying to listen to mouseover on Annot Partition bg rings
+        d3.event.stopPropagation();
+
+        // let selector_ringId = ".ring" + i;
+        d3 //FIXME:
+          .selectAll("path.minor_arcs")
+          .attr("fill-opacity", (dx, ix, jx) => {
+            let ringId = this.ring_key.indexOf(jx[ix].parentNode.__data__.Food);
+
+            return ringId === i ? 1 : 0.2;
+          })
+          .attr("stroke-opacity", (dx, ix, jx) => {
+            let ringId = this.ring_key.indexOf(jx[ix].parentNode.__data__.Food);
+            return ringId === i ? 1 : 0.1;
+          });
+
+        d3 //Highlighting the Annot Partition Ring being hovered
+          .select("g#partition6") //TODO: Change 6 incase you change orientation
+          .selectAll("path.visible_bg_Arcs")
+          .attr("fill-opacity", (dy, iy, jy) => {
+            return iy === i ? 0.4 : 0;
+          });
       });
 
     let food_ring_annotations = arcChartContainer
@@ -542,8 +556,8 @@ class RadialCustom extends Component {
       .attr("class", "ring_annot")
       .style("fill", "blue")
       .attr("x", 1)
-      .attr("dy", -3)
-      .attr("font-size", 14)
+      .attr("dy", 0)
+      .attr("font-size", arc_height + this.props.bg_ring_gap)
       .append("textPath")
       .attr("startOffset", "50%")
       .style("text-anchor", "middle")
@@ -561,18 +575,23 @@ class RadialCustom extends Component {
 
     // Adding groups and Data for arcs (this.arc)
     let minor_arcContainer = arcChartContainer
-      .selectAll("g.arcs")
+      .selectAll("g.arcsContainer")
       .data(this.partition_ring_group)
       .enter()
       .append("g")
-      .attr("class", "arcs");
+      .attr("class", "arcsContainer");
 
     // Minor Arcs
     minor_arcContainer
-      .selectAll("path")
+      .selectAll("path.minor_arcs")
       .data(d => d[this.arc])
       .enter()
       .append("path")
+      .attr("class", (d, i, j) => {
+        //FIXME:
+        let ringId = this.ring_key.indexOf(j[0].parentNode.__data__.Food);
+        return "minor_arcs ring" + ringId;
+      })
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
       .attr("d", minor_arcGen) // WHY IS TRANSITION DURATION NOT WORKING?
       .attr("fill-opacity", 0.7)
@@ -584,7 +603,7 @@ class RadialCustom extends Component {
       .attr("stroke", d =>
         colorScale(this.arc_key.indexOf(d) / this.arc_key.length)
       )
-      .attr("stroke-width", 0.5)
+      .attr("stroke-width", arc_height / 12)
       .on("mouseover", (d, i, j) => {
         div
           .transition()
