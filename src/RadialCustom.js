@@ -22,6 +22,18 @@ let colorScale = chroma.scale([
   "#e85151"
 ]);
 
+let regionColorScale = d3
+  .scaleOrdinal()
+  .domain([
+    "North India",
+    "South India",
+    "Central India",
+    "West India",
+    "Northeast India",
+    "East India"
+  ])
+  .range(["#53cf8d", "teal", "#9900cc", "hotpink", "#f7d283", "#e85151"]);
+
 class RadialCustom extends Component {
   constructor(props) {
     super(props);
@@ -77,24 +89,25 @@ class RadialCustom extends Component {
 
     //FIXME: Proper Filtering data flow. Ring filter-er
     //FIXME: Arrival Data not filtered based on rings!
-    console.log(this.ArrivalData);
-    // this.ArrivalData = this.ArrivalData.filter((d, i) => i < 20);
+
+    //UGLY: Filtering for data without any logic, just based on array index.
     this.key_filter = [];
     this.partition_ring_group.forEach(d => this.key_filter.push(d[this.ring]));
     this.key_filter = _.uniqBy(this.key_filter);
     this.partition_ring_group = this.partition_ring_group.filter(
       d => this.key_filter.indexOf(d[this.ring]) <= 14
     );
-    console.log(this.partition_ring_group);
 
     //Prepping the data
 
+    //REVIEW: Can JS UTC formatted date be added right in the data? No month, no year
     //Adding Date
     this.ArrivalData.forEach(d => {
       let parser = d3.utcParse("%B/%Y");
       d.date = parser(d.Month + "/" + d.Year);
     });
 
+    //REVIEW: For synching with ArcChart
     // Assigning FocusX and FocusY by grouping by month
     this.mArrivals = _.chain(this.ArrivalData)
       .groupBy(d => d.date.getMonth())
@@ -231,50 +244,44 @@ class RadialCustom extends Component {
     let arc_degree;
     let rotation_degree = partition_degree / 2; //TODO: Centering the annotation_partition, hence rotating all   -partition_degree / 2;
 
+    //TODO: I don't think there is need for alignment based on region, rather sorting
     this.props.alignment === "Yes"
       ? (arc_degree = partition_degree / this.arc_key.length)
       : (arc_degree = partition_degree / this.max_arc);
-    //for alignment devide by C_key.length instead of max_arc
+    //for alignment devide by arc_key.length instead of max_arc
 
-    // DEPRECATED STATE KEYS
-    //let states_keys = {
-    //   AP: 2,
-    //   AR: 3,
-    //   AS: 4,
-    //   BR: 5,
-    //   CG: 6,
-    //   GA: 7,
-    //   GJ: 8,
-    //   HR: 9,
-    //   HP: 10,
-    //   JK: 11,
-    //   JH: 12,
-    //   KA: 13,
-    //   KL: 14,
-    //   MP: 15,
-    //   MH: 16,
-    //   MN: 17,
-    //   ML: 18,
-    //   MZ: 19,
-    //   NL: 20,
-    //   OR: 21,
-    //   PB: 22,
-    //   RJ: 23,
-    //   SK: 24,
-    //   TN: 25,
-    //   TR: 26,
-    //   UK: 27,
-    //   UP: 28,
-    //   WB: 29,
-    //   AN: 30,
-    //   CH: 31,
-    //   DH: 32,
-    //   DD: 33,
-    //   DL: 34,
-    //   LD: 35,
-    //   PY: 36,
-    //   TS: 37,
-    // };
+    // STATE KEYS for color ATM
+    let stateRegion_keys = {
+      "Himachal Pradesh": "North India",
+      Haryana: "North India",
+      "Uttar Pradesh": "North India",
+      Uttarakhand: "North India",
+      "Jammu and Kashmir": "North India",
+      Punjab: "North India",
+      Rajasthan: "North India",
+      Goa: "West India",
+      Gujarat: "West India",
+      Maharashtra: "West India",
+      "Andhra Pradesh": "South India",
+      "Tamil Nadu": "South India",
+      Karnataka: "South India",
+      Telangana: "South India",
+      Kerala: "South India",
+      Bihar: "East India ",
+      Jharkhand: "East India ",
+      Orissa: "East India ",
+      "West Bengal": "East India ",
+      Chhattisgarh: "Central India",
+      "Madhya Pradesh": "Central India",
+      "Arunachal Pradesh": "Northeast India",
+      Assam: "Northeast India",
+      Manipur: "Northeast India",
+      Meghalaya: "Northeast India",
+      Mizoram: "Northeast India",
+      Nagaland: "Northeast India",
+      Sikkim: "Northeast India",
+      Tripura: "Northeast India"
+    };
 
     let ringScale = d3
       .scaleLinear()
@@ -589,7 +596,7 @@ class RadialCustom extends Component {
       .append("path")
       .attr("class", (d, i, j) => {
         //FIXME:
-        let ringId = this.ring_key.indexOf(j[0].parentNode.__data__.Food);
+        let ringId = this.ring_key.indexOf(j[0].parentNode.__data__.Food); //REVIEW: J[0] makes an issue?j[i]
         return "minor_arcs ring" + ringId;
       })
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
@@ -598,21 +605,28 @@ class RadialCustom extends Component {
       .attr("stroke-opacity", 0.9)
       .attr("fill", (d, i, j) => {
         //let loc = j[0].parentNode.__data__.Location;
-        return colorScale(this.arc_key.indexOf(d) / this.arc_key.length);
+        return regionColorScale(stateRegion_keys[d]);
       })
-      .attr("stroke", d =>
-        colorScale(this.arc_key.indexOf(d) / this.arc_key.length)
-      )
-      .attr("stroke-width", arc_height / 12)
+      //REVIEW: STROKE DESIGN CHOICES
+      // .attr("stroke", d =>
+      //   colorScale(this.arc_key.indexOf(d) / this.arc_key.length)
+      // )
+      // .attr("stroke-width", arc_height / 12)
       .on("mouseover", (d, i, j) => {
         div
           .transition()
           .duration(200)
           .style("opacity", 0.9);
         div
-          .html(d + " " + j[0].parentNode.__data__[this.ring])
+          .html(
+            d +
+              " " +
+              j[0].parentNode.__data__[this.ring] +
+              " " +
+              stateRegion_keys[d]
+          )
           .style("left", d3.event.pageX + "px")
-          .style("top", d3.event.pageY - 28 + "px");
+          .style("top", d3.event.pageY - 10 + "px");
       });
   };
 
