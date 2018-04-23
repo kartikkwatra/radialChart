@@ -3,8 +3,8 @@ import * as d3 from "d3";
 import _ from "lodash";
 import chroma from "chroma-js";
 
-const width = 900;
-const height = 900;
+// const width = 900;
+// const height = 900;
 const margin = { left: 10, top: 10, right: 10, bottom: 10 };
 
 //controlled growth curve function
@@ -15,12 +15,57 @@ const margin = { left: 10, top: 10, right: 10, bottom: 10 };
 //d3 functions
 let colorScale = chroma.scale([
   "#53cf8d",
-  "hotpink",
   "#9900cc",
-  "teal",
-  "#f7d283",
-  "#e85151"
+  "#009688",
+  "#2196F3",
+  "#eb8787"
 ]);
+
+colorScale.colors(10);
+
+let colors2 = [
+  "#2A88B2",
+  "#FF5CBB",
+  "#46FF98",
+  "#9526C9",
+  "#009688",
+  "#C75E52"
+];
+
+let colors3 = [
+  "#2C8ACC",
+  "#D41FA9",
+  "#24ED3F",
+  "#FF782E",
+  "#009688",
+  "#E0DD20"
+];
+
+let colorsx = [
+  "#eb8787",
+  "#53cf8d",
+  "#9C27B0",
+  "#558B2F",
+  "#009688",
+  "#2196F3",
+  "#FF1744",
+  "#aad28c",
+  "#795548",
+  "#FF9800"
+];
+
+let colors = [
+  "#66C5CC",
+  "#F6CF71",
+  "#F89C74",
+  "#DCB0F2",
+  "#87C55F",
+  "#9EB9F3",
+  "#FE88B1",
+  "#8BE0A4",
+  "#B497E7",
+  "#D3B484"
+];
 
 let regionColorScale = d3
   .scaleOrdinal()
@@ -32,7 +77,7 @@ let regionColorScale = d3
     "Northeast India",
     "East India"
   ])
-  .range(["#53cf8d", "teal", "#9900cc", "hotpink", "#f7d283", "#e85151"]);
+  .range(colors3);
 
 class RadialCustom extends Component {
   constructor(props) {
@@ -44,6 +89,7 @@ class RadialCustom extends Component {
     this.ring = this.props.ring;
     this.arc = this.props.arc;
     this.extra_partitions = this.props.extra_partitions;
+    this.radius = this.props.bubble_circle_radius;
 
     //TODO: What is this?
     for (let [key, value] of Object.entries(this.props)) {
@@ -61,17 +107,24 @@ class RadialCustom extends Component {
 
   componentWillMount = () => {
     this.simulation
-      .force("center", d3.forceCenter(width / 2, height / 2))
+      .force(
+        "center",
+        d3.forceCenter(this.props.width / 2, this.props.height / 2 - 60) // Vertival adjustment of the ring
+      )
+      .alphaDecay(0.023)
       .on("tick", this.ticked);
   };
 
   componentDidMount = () => {
-    this.container = d3.select(this.refs.container);
+    this.container = d3.select(this.refs[this.props.containerId]);
+    this.canvasContainer = d3.select(
+      this.refs["Canvas" + this.props.containerId]
+    );
     this.calculateData();
     this.renderBubbleChart();
     this.simulation
       .nodes(this.mArrivals)
-      .force("collide", d3.forceCollide(d => d.Arrival / 3000)) //TODO: Creating a log like scale
+      .force("collide", d3.forceCollide(d => Math.sqrt(d.Arrival / 100) + 2)) //TODO: Creating a log like scale
       .alpha(0.8)
       .restart();
     this.renderArcChart();
@@ -85,7 +138,7 @@ class RadialCustom extends Component {
 
   calculateData = () => {
     //PROCESSING DATA
-    // this.bubble_circle_radius = width / 2.5 - margin.left;
+    // this.bubble_circle_radius = this.props.width / 2.5 - margin.left;
 
     //FIXME: Proper Filtering data flow. Ring filter-er
     //FIXME: Arrival Data not filtered based on rings!
@@ -95,37 +148,41 @@ class RadialCustom extends Component {
     this.partition_ring_group.forEach(d => this.key_filter.push(d[this.ring]));
     this.key_filter = _.uniqBy(this.key_filter);
     this.partition_ring_group = this.partition_ring_group.filter(
-      d => this.key_filter.indexOf(d[this.ring]) <= 14
+      d => this.key_filter.indexOf(d[this.ring]) < 10
     );
 
-    //Prepping the data
-
-    //REVIEW: Can JS UTC formatted date be added right in the data? No month, no year
-    //Adding Date
-    this.ArrivalData.forEach(d => {
-      let parser = d3.utcParse("%B/%Y");
-      d.date = parser(d.Month + "/" + d.Year);
-    });
-
-    //REVIEW: For synching with ArcChart
-    // Assigning FocusX and FocusY by grouping by month
-    this.mArrivals = _.chain(this.ArrivalData)
-      .groupBy(d => d.date.getMonth())
-      //.sortBy(d => d.date.getMonth())
-      .map(mArrivals => {
-        return _.map(mArrivals, arr => {
-          let month = arr.date.getMonth();
-          let angle = 2 * Math.PI / 12 * month - Math.PI / 2;
-          let focusX = this.props.bubble_circle_radius * Math.cos(angle);
-          let focusY = this.props.bubble_circle_radius * Math.sin(angle);
-          return Object.assign(arr, {
-            focusX,
-            focusY
-          });
-        });
-      })
-      .flatten()
-      .value();
+    // STATE KEYS for color ATM
+    this.stateRegionKeys = {
+      "Himachal Pradesh": "North India",
+      Haryana: "North India",
+      "Uttar Pradesh": "North India",
+      Uttarakhand: "North India",
+      "Jammu and Kashmir": "North India",
+      Punjab: "North India",
+      Rajasthan: "North India",
+      Goa: "West India",
+      Gujarat: "West India",
+      Maharashtra: "West India",
+      "Andhra Pradesh": "South India",
+      "Tamil Nadu": "South India",
+      Karnataka: "South India",
+      Telangana: "South India",
+      Kerala: "South India",
+      Bihar: "East India",
+      Jharkhand: "East India",
+      Orissa: "East India",
+      "West Bengal": "East India",
+      Chhattisgarh: "Central India",
+      "Madhya Pradesh": "Central India",
+      "Arunachal Pradesh": "Northeast India",
+      Assam: "Northeast India",
+      Manipur: "Northeast India",
+      Meghalaya: "Northeast India",
+      Mizoram: "Northeast India",
+      Nagaland: "Northeast India",
+      Sikkim: "Northeast India",
+      Tripura: "Northeast India"
+    };
 
     //Processing partition_ring_group
     let arc_count = []; //for maximum number of arcs possible
@@ -151,6 +208,10 @@ class RadialCustom extends Component {
       d[this.arc].forEach(d => {
         this.arc_key.push(d);
       });
+
+      d[this.arc] = _.sortBy(d[this.arc]);
+
+      d[this.arc] = _.sortBy(d[this.arc], d => this.stateRegionKeys[d]);
     });
 
     console.log(this.partition_key);
@@ -162,6 +223,71 @@ class RadialCustom extends Component {
 
     this.food_key = this[this.food + "_key"];
     this.max_arc = d3.max(arc_count);
+
+    //Prepping the data
+
+    // Filtering arrival data
+    this.ArrivalData = this.ArrivalData.filter(
+      d => this.key_filter.indexOf(d.FoodEng) < 10
+    );
+    //REVIEW: Can JS UTC formatted date be added right in the data? No month, no year
+    //Adding Date
+    this.ArrivalData.forEach(d => {
+      let parser = d3.utcParse("%B/%Y");
+      d.date = parser(d.Month + "/" + d.Year);
+    });
+
+    //Angle calculations
+    this.min_radius = this.props.min_radius;
+    this.max_radius = this.radius - this.props.bubble_circle_radius / 5; //TODO: Gap maintain
+    this.arc_height = this.props.arc_height;
+    let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
+    this.sep_degree = Math.PI / 360;
+    this.arc_degree;
+    this.annotation_partition_degree = Math.PI / 3;
+    let available_degree = Math.PI * 2 - this.annotation_partition_degree;
+    this.partition_degree = available_degree / no_of_partitions;
+    this.rotation_degree = this.partition_degree / 2; //TODO: Centering the annotation_partition, hence rotating all   -this.partition_degree / 2;
+
+    //REVIEW: For synching with ArcChart
+    // Assigning FocusX and FocusY by grouping by month
+    this.mArrivals = _.chain(this.ArrivalData)
+      .groupBy(d => d.date.getMonth())
+      //.sortBy(d => d.date.getMonth())
+      .map(Arrivals => {
+        return _.map(Arrivals, arr => {
+          let month = arr.date.getMonth();
+          // let partitionBased_startAngle =
+          // -this.partition_degree / 2 + this.partition_degree * month;
+          let angle;
+          if (month <= 5) {
+            angle =
+              this.partition_degree * (month + 1) -
+              Math.PI / 2 -
+              this.rotation_degree +
+              2 * 2 * Math.PI / 360;
+          } else if (month > 5) {
+            angle =
+              this.partition_degree * (month + 1) +
+              this.annotation_partition_degree -
+              Math.PI / 2 -
+              this.rotation_degree +
+              -2 * 1 * Math.PI / 360;
+          }
+
+          // this.partition_degree * month - Math.PI / 2 + this.rotation_degree;
+          let focusX = this.radius * Math.cos(angle);
+          let focusY = this.radius * Math.sin(angle);
+          return Object.assign(arr, {
+            focusX,
+            focusY
+          });
+        });
+      })
+      .flatten()
+      .value();
+
+    console.log(this.mArrivals);
 
     // DEPRECATED FOOD KEY: GIVES CONTROL OF ORDER OF FOOD
     // Creating Dictionary keys
@@ -211,83 +337,146 @@ class RadialCustom extends Component {
   };
 
   renderBubbleChart = () => {
+    //Prerequisites:
+    var defs = this.container.append("defs");
+    function rgbToCMYK(rgb) {
+      var r = rgb.r / 255,
+        g = rgb.g / 255,
+        b = rgb.b / 255,
+        k = 1 - Math.max(r, g, b);
+
+      return {
+        cyan: (1 - r - k) / (1 - k),
+        magenta: (1 - g - k) / (1 - k),
+        yellow: (1 - b - k) / (1 - k),
+        black: k
+      };
+    } //function rgbToCMYK
+
+    //Canvas Part /////////////////////////////////////////
+    // var canvas = d3
+    //   .select(this.refs["Canvas" + this.props.containerId])
+    //   .append("canvas")
+    //   .attr("id", "canvas")
+    //   .attr("width", 400)
+    //   .attr("height", 400);
+
+    // var context = canvas.node().getContext("2d");
+
+    //////////////////////////////////////////////////////////////
+    ///////////////////// Create CMYK patterns ///////////////////
+    //////////////////////////////////////////////////////////////
+
+    let size_factor = 1.5;
+    var radius_color_max = 2 * size_factor;
+    var radius_color = d3.scaleSqrt().range([0, radius_color_max]);
+
+    var cmyk_colors = ["yellow", "magenta", "cyan", "black"],
+      rotation = [0, -15, 15, 45];
+
+    //Loop over the different colors in the palette
+    for (var j = 0; j < colors.length; j++) {
+      //Get the radius transformations for this color
+      var CMYK = rgbToCMYK(d3.rgb(colors[j]));
+
+      //Create 4 patterns, C-Y-M-K, together forming the color
+      defs
+        .selectAll(".pattern-sub")
+        .data(cmyk_colors)
+        .enter()
+        .append("pattern")
+        .attr("id", function(d) {
+          return "pattern-sub-" + d + "-" + j;
+        })
+        .attr("patternUnits", "userSpaceOnUse")
+        .attr("patternTransform", function(d, i) {
+          return "rotate(" + rotation[i] + ")";
+        })
+        .attr("width", 2 * radius_color_max)
+        .attr("height", 2 * radius_color_max)
+        .append("circle")
+        .attr("fill", Object)
+        .attr("cx", radius_color_max)
+        .attr("cy", radius_color_max)
+        .attr("r", function(d) {
+          return Math.max(0.001, radius_color(CMYK[d]));
+        });
+
+      //Nest the CMYK patterns into a larger pattern
+      var patterns = defs
+        .append("pattern")
+        .attr("id", "pattern-total-" + j)
+        .attr("patternUnits", "userSpaceOnUse")
+        .attr("width", radius_color_max * 31)
+        .attr("height", radius_color_max * 31);
+
+      //Append white background
+      patterns
+        .append("rect")
+        .attr("width", 900)
+        .attr("height", 900)
+        .attr("x", 0)
+        .attr("y", 0)
+        .style("fill", "white");
+
+      //Add the CMYK patterns
+      patterns
+        .selectAll(".dots")
+        .data(cmyk_colors)
+        .enter()
+        .append("rect")
+        .attr("class", "dots")
+        .attr("width", 900)
+        .attr("height", 900)
+        .attr("x", 0)
+        .attr("y", 0)
+        .style("mix-blend-mode", "multiply")
+        .attr("fill", function(d, i) {
+          return "url(#pattern-sub-" + cmyk_colors[i] + "-" + j + ")";
+        });
+    } //for j
+
+    // Canvas part ends here ////////////////////////////
     this.circles = this.container
       .append("g")
-      .attr("id", "bubble_group")
+      .attr("class", "bubble_group")
       .selectAll("circle")
       .data(this.mArrivals);
 
     //exit
     this.circles.exit().remove();
 
+    console.log(this.food_key);
+
     //enter+update
     this.circles = this.circles
       .enter()
       .append("circle")
-      .attr("fill-opacity", "0.8")
-      .attr("stroke-width", "3")
+      .attr("class", d => this.food_key.indexOf(d.FoodEng) + "bubble")
       .merge(this.circles)
-      .attr("r", d => d.Arrival / 3000) //TODO: Creating a log like scale
-      .attr("fill", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20))
-      .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
+      .attr("r", d => Math.sqrt(d.Arrival / this.props.bubbleRfactor)) //TODO: Creating a log like scale
+      .attr("fill", (d, i) => {
+        return "url(#pattern-total-" + this.food_key.indexOf(d.FoodEng) + ")";
+      }) //d => colorScale(this.food_key.indexOf(d.FoodEng) / 10))
+      .attr("stroke", d => colors[this.food_key.indexOf(d.FoodEng)])
+      .attr("stroke-width", 3)
+      .attr("stroke-opacity", 0.7)
+      .attr("fill-opacity", 0.6);
   };
 
   renderArcChart = () => {
-    let min_radius = this.props.min_radius;
-    let max_radius = this.props.bubble_circle_radius - 35;
-    const arc_height = this.props.arc_height;
-    let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
-    let sep_degree = Math.PI / 360;
-    let annotation_partition_degree = Math.PI / 2.2;
-    let available_degree = Math.PI * 2 - annotation_partition_degree;
-    let partition_degree = available_degree / no_of_partitions;
-    let arc_degree;
-    let rotation_degree = partition_degree / 2; //TODO: Centering the annotation_partition, hence rotating all   -partition_degree / 2;
-
     //TODO: I don't think there is need for alignment based on region, rather sorting
     this.props.alignment === "Yes"
-      ? (arc_degree = partition_degree / this.arc_key.length)
-      : (arc_degree = partition_degree / this.max_arc);
+      ? (this.arc_degree = this.partition_degree / this.arc_key.length)
+      : (this.arc_degree = this.partition_degree / this.max_arc);
     //for alignment devide by arc_key.length instead of max_arc
-
-    // STATE KEYS for color ATM
-    let stateRegion_keys = {
-      "Himachal Pradesh": "North India",
-      Haryana: "North India",
-      "Uttar Pradesh": "North India",
-      Uttarakhand: "North India",
-      "Jammu and Kashmir": "North India",
-      Punjab: "North India",
-      Rajasthan: "North India",
-      Goa: "West India",
-      Gujarat: "West India",
-      Maharashtra: "West India",
-      "Andhra Pradesh": "South India",
-      "Tamil Nadu": "South India",
-      Karnataka: "South India",
-      Telangana: "South India",
-      Kerala: "South India",
-      Bihar: "East India ",
-      Jharkhand: "East India ",
-      Orissa: "East India ",
-      "West Bengal": "East India ",
-      Chhattisgarh: "Central India",
-      "Madhya Pradesh": "Central India",
-      "Arunachal Pradesh": "Northeast India",
-      Assam: "Northeast India",
-      Manipur: "Northeast India",
-      Meghalaya: "Northeast India",
-      Mizoram: "Northeast India",
-      Nagaland: "Northeast India",
-      Sikkim: "Northeast India",
-      Tripura: "Northeast India"
-    };
 
     let ringScale = d3
       .scaleLinear()
       .domain([0, this.ring_key.length])
-      .range([min_radius, max_radius]);
+      .range([this.min_radius, this.max_radius]);
 
+    // Arc Setup
     let minor_arcGen = d3
       .arc()
       .outerRadius((d, i, j) => {
@@ -296,7 +485,7 @@ class RadialCustom extends Component {
       })
       .innerRadius((d, i, j) => {
         let ring = j[0].parentNode.__data__[this.ring];
-        return ringScale(this.ring_key.indexOf(ring)) - arc_height;
+        return ringScale(this.ring_key.indexOf(ring)) - this.arc_height;
       })
       .startAngle((d, i, j) => {
         let partition_no; // If partition is Month, then it accesses date, else not
@@ -308,22 +497,26 @@ class RadialCustom extends Component {
             ));
 
         let partitionBased_startAngle =
-          -partition_degree / 2 + partition_degree * partition_no;
+          -this.partition_degree / 2 + this.partition_degree * partition_no;
 
         if (partition_no >= 6) {
-          partitionBased_startAngle += annotation_partition_degree;
+          partitionBased_startAngle += this.annotation_partition_degree;
         }
 
         if (this.props.alignment === "Yes") {
-          let arcBased_startAngle = this.arc_key.indexOf(d) * arc_degree;
+          let arcBased_startAngle = this.arc_key.indexOf(d) * this.arc_degree;
           let s_angle =
-            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
-          return i === 0 ? sep_degree + s_angle : s_angle;
+            partitionBased_startAngle +
+            arcBased_startAngle +
+            this.rotation_degree;
+          return i === 0 ? this.sep_degree + s_angle : s_angle;
         } else if (this.props.alignment === "No") {
-          let arcBased_startAngle = i * arc_degree;
+          let arcBased_startAngle = i * this.arc_degree;
           let s_angle =
-            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
-          return i === 0 ? sep_degree + s_angle : s_angle;
+            partitionBased_startAngle +
+            arcBased_startAngle +
+            this.rotation_degree;
+          return i === 0 ? this.sep_degree + s_angle : s_angle;
         }
       })
       .endAngle((d, i, j) => {
@@ -334,22 +527,26 @@ class RadialCustom extends Component {
               j[0].parentNode.__data__[this.partition]
             ));
         let partitionBased_startAngle =
-          -partition_degree / 2 + partition_degree * partition_no;
+          -this.partition_degree / 2 + this.partition_degree * partition_no;
 
         if (partition_no >= 6) {
-          partitionBased_startAngle += annotation_partition_degree;
+          partitionBased_startAngle += this.annotation_partition_degree;
         }
 
         if (this.props.alignment === "Yes") {
-          let arcBased_startAngle = this.arc_key.indexOf(d) * arc_degree;
+          let arcBased_startAngle = this.arc_key.indexOf(d) * this.arc_degree;
           let s_angle =
-            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
-          return s_angle + arc_degree;
+            partitionBased_startAngle +
+            arcBased_startAngle +
+            this.rotation_degree;
+          return s_angle + this.arc_degree;
         } else if (this.props.alignment === "No") {
-          let arcBased_startAngle = i * arc_degree;
+          let arcBased_startAngle = i * this.arc_degree;
           let s_angle =
-            partitionBased_startAngle + arcBased_startAngle + rotation_degree;
-          return s_angle + arc_degree;
+            partitionBased_startAngle +
+            arcBased_startAngle +
+            this.rotation_degree;
+          return s_angle + this.arc_degree;
         }
       });
 
@@ -362,39 +559,37 @@ class RadialCustom extends Component {
       })
       .innerRadius((d, i, j) => {
         // let ring = j[0].parentNode.__data__[this.ring];
-        return ringScale(i) - arc_height - this.props.bg_ring_gap;
+        return ringScale(i) - this.arc_height - this.props.bg_ring_gap;
       })
       .startAngle((d, i, j) => {
         let partition_no = j[0].parentNode.__data__;
         let s_angle =
-          -partition_degree / 2 +
-          partition_degree * partition_no +
-          rotation_degree;
+          -this.partition_degree / 2 +
+          this.partition_degree * partition_no +
+          this.rotation_degree;
 
         if (partition_no >= 7) {
-          s_angle += annotation_partition_degree - partition_degree;
+          s_angle += this.annotation_partition_degree - this.partition_degree;
         }
 
-        return sep_degree + s_angle;
+        return this.sep_degree + s_angle;
       })
       .endAngle((d, i, j) => {
         let partition_no = j[0].parentNode.__data__;
         let s_angle =
-          -partition_degree / 2 +
-          partition_degree * partition_no +
-          rotation_degree;
+          -this.partition_degree / 2 +
+          this.partition_degree * partition_no +
+          this.rotation_degree;
         // pehle end angle shift hoga, fir start angle shift hoga (7 onwards), you are drwaing with one pen,one hand at a time, not two lines simultaneously.
-        let end_angle = s_angle + partition_degree; //Partition no 6 is annotation_partition
+        let end_angle = s_angle + this.partition_degree; //Partition no 6 is annotation_partition
         if (partition_no === 6) {
-          end_angle = s_angle + annotation_partition_degree;
+          end_angle = s_angle + this.annotation_partition_degree;
         } else if (partition_no > 6) {
-          end_angle += annotation_partition_degree - partition_degree;
+          end_angle += this.annotation_partition_degree - this.partition_degree;
         }
 
         return end_angle;
       });
-
-    let arcChartContainer = this.container.append("svg");
 
     let arcManipulator = (selection, reverseFlag = 1) => {
       // Docstring:
@@ -434,6 +629,9 @@ class RadialCustom extends Component {
       return newArc;
     };
 
+    // #### Creating the Arcs ####
+    let arcChartContainer = this.container.append("svg");
+
     // 13 parts Background Rings
     const lastringid = this.ring_key.length - 1;
     let bg_ring = arcChartContainer
@@ -455,16 +653,20 @@ class RadialCustom extends Component {
         let partition_no = j[0].parentNode.__data__;
         return "partition" + partition_no + "ring" + i;
       })
-      .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+      .attr(
+        "transform",
+        "translate(" + this.props.width / 2 + "," + this.props.height / 2 + ")"
+      )
       .attr("d", bg_ringGen)
-      .attr("fill", "grey")
+      .attr("fill", "none")
       .attr("fill-opacity", 0.07);
     // .attr("stroke", "grey")
     // .attr("stroke-width", 0.15);
 
+    // Creating Hidden arcs for Partition Annotations (last rings of each partition)
     bg_ring.each((d, i, j) => {
       let selector = "path#partition" + d + "ring" + lastringid;
-      let selection_of_pathElem = d3.select(selector);
+      let selection_of_pathElem = this.container.select(selector);
       let newArc;
       if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) {
         newArc = arcManipulator(selection_of_pathElem, 1);
@@ -479,21 +681,30 @@ class RadialCustom extends Component {
         .attr("class", "hiddenArcs")
         .attr("id", (d, i, j) => {
           // let partition_no = j[0].parentNode.__data__;
-          return "HiddenPartition" + d + "ring" + lastringid;
+          return (
+            this.props.containerId + "HiddenPartition" + d + "ring" + lastringid
+          );
         })
-        .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+        .attr(
+          "transform",
+          "translate(" +
+            this.props.width / 2 +
+            "," +
+            this.props.height / 2 +
+            ")"
+        )
         .attr("d", newArc)
         .style("fill", "none");
     });
 
-    // Appending Partition Annotations
-    d3
+    // Creating Partition Annotations
+    this.container
       .selectAll("g.rings")
       .append("text")
-      .attr("class", "partition_annot")
+      .attr("class", "partition_annotations")
       .attr("dy", d => {
         // Code for adjusting the dy for the reversed arcs (partition 5 & 7)
-        if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return arc_height + 5;
+        if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return this.arc_height + 5;
         else return -5;
       })
       .each((d, i, j) => {
@@ -502,7 +713,15 @@ class RadialCustom extends Component {
           .append("textPath")
           .attr("startOffset", "50%")
           .style("text-anchor", "middle")
-          .attr("xlink:href", "#HiddenPartition" + d + "ring" + lastringid)
+          .attr(
+            "xlink:href",
+            "#" +
+              this.props.containerId +
+              "HiddenPartition" +
+              d +
+              "ring" +
+              lastringid
+          )
           .text(d => {
             // Code for Jumping the annotation partition i.e the partition with Food Names in rings
             if (d === 6) return null;
@@ -512,68 +731,143 @@ class RadialCustom extends Component {
       });
 
     //Appending hidden arcs for Annot Partition (partition 6)
-    d3
+    this.container
       .select("g#partition6") //TODO: Change 6 incase you change orientation
       .selectAll("path.visible_bg_Arcs")
+      .attr("fill-opacity", 0.3)
+      .attr("fill", (d, i) => "url(#pattern-total-" + i + ")")
+      .attr("stroke-width", 1)
+      .attr("stroke-opacity", 0.4)
+      .attr("stroke", (d, i) => colors[i])
       .each((d, i, j) => {
         let newArc = arcManipulator(d3.select(j[i]));
 
         //Create a new invisible arc that the text can flow along
-        d3
+        this.container
           .select("g#partition6")
           .append("path")
-          .attr("class", "hiddenArcs")
-          .attr("id", "hiddenArc" + i)
-          .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+          .attr("class", "hiddenArcs") // TODO: Change the naming here: More specific
+          .attr("id", this.props.containerId + "hiddenArc" + i)
+          .attr(
+            "transform",
+            "translate(" +
+              this.props.width / 2 +
+              "," +
+              this.props.height / 2 +
+              ")"
+          )
           .attr("d", newArc)
           .style("fill", "none");
       })
       .on("mouseover", (d, i, j) => {
-        //Trying to listen to mouseover on Annot Partition bg rings
+        //Listen to mouseover on Annot Partition bg_rings
         d3.event.stopPropagation();
 
-        // let selector_ringId = ".ring" + i;
-        d3 //FIXME:
+        this.container
           .selectAll("path.minor_arcs")
+          .transition()
+          .duration(150)
           .attr("fill-opacity", (dx, ix, jx) => {
             let ringId = this.ring_key.indexOf(jx[ix].parentNode.__data__.Food);
 
-            return ringId === i ? 1 : 0.2;
+            return ringId === i ? 1 : 0.1;
           })
           .attr("stroke-opacity", (dx, ix, jx) => {
             let ringId = this.ring_key.indexOf(jx[ix].parentNode.__data__.Food);
             return ringId === i ? 1 : 0.1;
+          })
+          .attr("stroke", (dx, ix, jx) => {
+            let ringId = this.ring_key.indexOf(jx[ix].parentNode.__data__.Food);
+            return ringId === i ? "white" : "none";
           });
 
-        d3 //Highlighting the Annot Partition Ring being hovered
+        this.container //Highlighting the Annot Partition Ring being hovered
           .select("g#partition6") //TODO: Change 6 incase you change orientation
           .selectAll("path.visible_bg_Arcs")
+          .transition()
+          .duration(150)
+          .attr("fill", (dy, iy) => {
+            return "url(#pattern-total-" + iy + ")";
+          })
           .attr("fill-opacity", (dy, iy, jy) => {
             return iy === i ? 0.4 : 0;
+          })
+          .attr("stroke-opacity", (dy, iy, jy) => {
+            return iy === i ? 0.5 : 0;
           });
+
+        let selector = "circle." + this.food_key.indexOf(d) + "bubble";
+
+        // this.container
+        //   .select("g.bubble_group")
+        //   .selectAll("circle")
+        //   .attr("fill-opacity", dx => {
+        //     dx.FoodEng !== d ? 0 : 1;
+        //   })
+        //   .attr("stroke-opcacity", dx => {
+        //     dx.FoodEng === d ? 1 : 0;
+        //   });
+
+        // this.container
+        //   .select("g.bubble_group")
+        //   .selectAll(selector)
+        //   .attr("opacity", 1);
+
+        //Highlighting the bubbles
+        this.container
+          .select("g.bubble_group")
+          .selectAll("circle")
+          .each((dx, ix, jx) => {
+            dx.FoodEng === d
+              ? d3
+                  .select(jx[ix])
+                  .transition()
+                  .duration(500)
+                  .attr("opacity", 0.99)
+                  .attr("stroke-opacity", 1)
+              : d3
+                  .select(jx[ix])
+                  .transition()
+                  .duration(500)
+                  .attr("opacity", 0.1)
+                  .attr("stroke-opacity", 0.8);
+          });
+        // .attr("opacity", dx => {
+        //   dx.FoodEng !== d ? 0 : 0;
+        // });
+
+        // console.log(this.mArrivals);
+
+        // .attr("stroke-width", "3")
+        // .merge(this.circles)
+        // .attr("r", d => d.Arrival / 3000) //TODO: Creating a log like scale
+        // .attr("fill", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20))
+        // .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
       });
 
-    let food_ring_annotations = arcChartContainer
+    let annot_partition_annotations = arcChartContainer
       .append("svg")
-      .attr("class", "ring_annot_container")
+      .attr("class", "annot_partition_Annotations_container")
       .selectAll("text.ring_annot")
       .data(this.ring_key)
       .enter()
       .append("text")
       .attr("class", "ring_annot")
-      .style("fill", "blue")
+      .style("fill", "red")
+      .attr("stroke-width", 1)
       .attr("x", 1)
       .attr("dy", 0)
-      .attr("font-size", arc_height + this.props.bg_ring_gap)
+      .attr("font-size", this.arc_height + this.props.bg_ring_gap)
       .append("textPath")
       .attr("startOffset", "50%")
       .style("text-anchor", "middle")
       .attr("xlink:href", (d, i) => {
         // let partition_no = j[0].parentNode.__data__;
-        return "#hiddenArc" + i;
+        return "#" + this.props.containerId + "hiddenArc" + i;
       })
       .text(d => d);
 
+    //REVIEW: Why attach tooltip to <body> ?
     let div = d3
       .select("body")
       .append("div")
@@ -588,7 +882,7 @@ class RadialCustom extends Component {
       .append("g")
       .attr("class", "arcsContainer");
 
-    // Minor Arcs
+    // Appending Minor Arcs
     minor_arcContainer
       .selectAll("path.minor_arcs")
       .data(d => d[this.arc])
@@ -599,31 +893,36 @@ class RadialCustom extends Component {
         let ringId = this.ring_key.indexOf(j[0].parentNode.__data__.Food); //REVIEW: J[0] makes an issue?j[i]
         return "minor_arcs ring" + ringId;
       })
-      .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")")
+      .attr(
+        "transform",
+        "translate(" + this.props.width / 2 + "," + this.props.height / 2 + ")"
+      )
       .attr("d", minor_arcGen) // WHY IS TRANSITION DURATION NOT WORKING?
       .attr("fill-opacity", 0.7)
       .attr("stroke-opacity", 0.9)
       .attr("fill", (d, i, j) => {
         //let loc = j[0].parentNode.__data__.Location;
-        return regionColorScale(stateRegion_keys[d]);
+        return regionColorScale(this.stateRegionKeys[d]);
       })
       //REVIEW: STROKE DESIGN CHOICES
-      // .attr("stroke", d =>
-      //   colorScale(this.arc_key.indexOf(d) / this.arc_key.length)
-      // )
-      // .attr("stroke-width", arc_height / 12)
+      .attr(
+        "stroke",
+        d => "white" // colorScale(this.arc_key.indexOf(d) / this.arc_key.length)
+      )
+      .attr("stroke-width", this.arc_height / 25)
       .on("mouseover", (d, i, j) => {
         div
           .transition()
           .duration(200)
           .style("opacity", 0.9);
+
         div
           .html(
             d +
               " " +
               j[0].parentNode.__data__[this.ring] +
               " " +
-              stateRegion_keys[d]
+              this.stateRegionKeys[d]
           )
           .style("left", d3.event.pageX + "px")
           .style("top", d3.event.pageY - 10 + "px");
@@ -635,7 +934,15 @@ class RadialCustom extends Component {
   };
 
   render() {
-    return <svg width={width} height={height} ref="container" />;
+    return (
+      <div ref={"Canvas" + this.props.containerId}>
+        <svg
+          width={this.props.width}
+          height={this.props.height}
+          ref={this.props.containerId}
+        />
+      </div>
+    );
   }
 }
 
