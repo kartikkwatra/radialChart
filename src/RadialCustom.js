@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import * as d3 from "d3";
+import * as dAnn from "d3-svg-annotation";
 import _ from "lodash";
 import chroma from "chroma-js";
 
@@ -100,8 +101,8 @@ class RadialCustom extends Component {
 
     this.simulation = d3
       .forceSimulation()
-      .force("x", d3.forceX(d => d.focusX))
       .force("y", d3.forceY(d => d.focusY))
+      .force("x", d3.forceX(d => d.focusX))
       .stop();
   }
 
@@ -109,9 +110,10 @@ class RadialCustom extends Component {
     this.simulation
       .force(
         "center",
-        d3.forceCenter(this.props.width / 2, this.props.height / 2 - 60) // Vertival adjustment of the ring
+        d3.forceCenter(this.props.width / 2 - 3, this.props.height / 2 - 58) // Vertival lift adjustment of the ring
       )
-      .alphaDecay(0.023)
+      .alphaTarget(0.021)
+      // .alphaDecay(0.023)
       .on("tick", this.ticked);
   };
 
@@ -124,7 +126,7 @@ class RadialCustom extends Component {
     this.renderBubbleChart();
     this.simulation
       .nodes(this.mArrivals)
-      .force("collide", d3.forceCollide(d => Math.sqrt(d.Arrival / 100) + 2)) //TODO: Creating a log like scale
+      .force("collide", d3.forceCollide(d => Math.sqrt(d.Arrival / 100) + 1.5)) //TODO: Creating a log like scale
       .alpha(0.8)
       .restart();
     this.renderArcChart();
@@ -214,8 +216,6 @@ class RadialCustom extends Component {
       d[this.arc] = _.sortBy(d[this.arc], d => this.stateRegionKeys[d]);
     });
 
-    console.log(this.partition_key);
-
     this.arc_key = _.uniqBy(this.arc_key);
     this.ring_key = _.uniqBy(this.ring_key);
     if (this.partition !== "Month")
@@ -239,7 +239,7 @@ class RadialCustom extends Component {
 
     //Angle calculations
     this.min_radius = this.props.min_radius;
-    this.max_radius = this.radius - this.props.bubble_circle_radius / 5; //TODO: Gap maintain
+    this.max_radius = this.radius - 70; //TODO: Gap maintain
     this.arc_height = this.props.arc_height;
     let no_of_partitions = this.partition_key.length; //+ this.extra_partitions;
     this.sep_degree = Math.PI / 360;
@@ -264,8 +264,8 @@ class RadialCustom extends Component {
             angle =
               this.partition_degree * (month + 1) -
               Math.PI / 2 -
-              this.rotation_degree +
-              2 * 2 * Math.PI / 360;
+              this.rotation_degree;
+            // 2 * 2 * Math.PI / 360;
           } else if (month > 5) {
             angle =
               this.partition_degree * (month + 1) +
@@ -287,7 +287,20 @@ class RadialCustom extends Component {
       .flatten()
       .value();
 
-    console.log(this.mArrivals);
+    this.allStates_in_year = [];
+    //Creating Unique state list for each Food
+    for (let index in this.food_key) {
+      let x = this.partition_ring_group.filter(
+        d => d.Food === this.food_key[index]
+      );
+
+      let tempArray = [];
+      x.forEach(d => {
+        tempArray = tempArray.concat(d.Location);
+      });
+      this.allStates_in_year.push([...new Set(tempArray)]);
+    }
+    console.log(this.allStates_in_year);
 
     // DEPRECATED FOOD KEY: GIVES CONTROL OF ORDER OF FOOD
     // Creating Dictionary keys
@@ -417,7 +430,7 @@ class RadialCustom extends Component {
         .attr("height", 900)
         .attr("x", 0)
         .attr("y", 0)
-        .style("fill", "white");
+        .attr("fill", "white");
 
       //Add the CMYK patterns
       patterns
@@ -430,7 +443,7 @@ class RadialCustom extends Component {
         .attr("height", 900)
         .attr("x", 0)
         .attr("y", 0)
-        .style("mix-blend-mode", "multiply")
+        .attr("mix-blend-mode", "multiply")
         .attr("fill", function(d, i) {
           return "url(#pattern-sub-" + cmyk_colors[i] + "-" + j + ")";
         });
@@ -446,15 +459,13 @@ class RadialCustom extends Component {
     //exit
     this.circles.exit().remove();
 
-    console.log(this.food_key);
-
     //enter+update
     this.circles = this.circles
       .enter()
       .append("circle")
-      .attr("class", d => this.food_key.indexOf(d.FoodEng) + "bubble")
+      .attr("class", d => "class" + this.food_key.indexOf(d.FoodEng) + "bubble")
       .merge(this.circles)
-      .attr("r", d => Math.sqrt(d.Arrival / this.props.bubbleRfactor)) //TODO: Creating a log like scale
+      .attr("r", d => Math.sqrt(d.Arrival / this.props.bubbleRfactor))
       .attr("fill", (d, i) => {
         return "url(#pattern-total-" + this.food_key.indexOf(d.FoodEng) + ")";
       }) //d => colorScale(this.food_key.indexOf(d.FoodEng) / 10))
@@ -633,7 +644,7 @@ class RadialCustom extends Component {
     let arcChartContainer = this.container.append("svg");
 
     // 13 parts Background Rings
-    const lastringid = this.ring_key.length - 1;
+    this.lastringid = this.ring_key.length - 1;
     let bg_ring = arcChartContainer
       .selectAll("g")
       .data(d3.range(13))
@@ -665,7 +676,7 @@ class RadialCustom extends Component {
 
     // Creating Hidden arcs for Partition Annotations (last rings of each partition)
     bg_ring.each((d, i, j) => {
-      let selector = "path#partition" + d + "ring" + lastringid;
+      let selector = "path#partition" + d + "ring" + this.lastringid;
       let selection_of_pathElem = this.container.select(selector);
       let newArc;
       if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) {
@@ -682,7 +693,11 @@ class RadialCustom extends Component {
         .attr("id", (d, i, j) => {
           // let partition_no = j[0].parentNode.__data__;
           return (
-            this.props.containerId + "HiddenPartition" + d + "ring" + lastringid
+            this.props.containerId +
+            "HiddenPartition" +
+            d +
+            "ring" +
+            this.lastringid
           );
         })
         .attr(
@@ -694,7 +709,7 @@ class RadialCustom extends Component {
             ")"
         )
         .attr("d", newArc)
-        .style("fill", "none");
+        .attr("fill", "none");
     });
 
     // Creating Partition Annotations
@@ -708,11 +723,18 @@ class RadialCustom extends Component {
         else return -5;
       })
       .each((d, i, j) => {
+        //Adding Month Names
         d3
           .select(j[i])
           .append("textPath")
-          .attr("startOffset", "50%")
-          .style("text-anchor", "middle")
+          .attr("startOffset", d => {
+            if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return "100%";
+            else return "0%";
+          })
+          .attr("text-anchor", d => {
+            if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return "end";
+            else return "start";
+          })
           .attr(
             "xlink:href",
             "#" +
@@ -720,7 +742,7 @@ class RadialCustom extends Component {
               "HiddenPartition" +
               d +
               "ring" +
-              lastringid
+              this.lastringid
           )
           .text(d => {
             // Code for Jumping the annotation partition i.e the partition with Food Names in rings
@@ -742,7 +764,7 @@ class RadialCustom extends Component {
       .each((d, i, j) => {
         let newArc = arcManipulator(d3.select(j[i]));
 
-        //Create a new invisible arc that the text can flow along
+        //Create a new invisible arc so that the text can flow along
         this.container
           .select("g#partition6")
           .append("path")
@@ -757,11 +779,14 @@ class RadialCustom extends Component {
               ")"
           )
           .attr("d", newArc)
-          .style("fill", "none");
+          .attr("fill", "none");
       })
       .on("mouseover", (d, i, j) => {
-        //Listen to mouseover on Annot Partition bg_rings
+        //Listen to mouseover on Annot Partition bg_rings //TODO: Organise
         d3.event.stopPropagation();
+
+        //Clearing arrivalQtyText annotations  //FIXME: Wrong. Should be in mouseout: All reverts to prev stage
+        d3.selectAll("text.arrivalQtyText").remove();
 
         this.container
           .selectAll("path.minor_arcs")
@@ -796,55 +821,138 @@ class RadialCustom extends Component {
             return iy === i ? 0.5 : 0;
           });
 
-        let selector = "circle." + this.food_key.indexOf(d) + "bubble";
-
-        // this.container
-        //   .select("g.bubble_group")
-        //   .selectAll("circle")
-        //   .attr("fill-opacity", dx => {
-        //     dx.FoodEng !== d ? 0 : 1;
-        //   })
-        //   .attr("stroke-opcacity", dx => {
-        //     dx.FoodEng === d ? 1 : 0;
-        //   });
-
-        // this.container
-        //   .select("g.bubble_group")
-        //   .selectAll(selector)
-        //   .attr("opacity", 1);
-
         //Highlighting the bubbles
         this.container
           .select("g.bubble_group")
           .selectAll("circle")
           .each((dx, ix, jx) => {
-            dx.FoodEng === d
-              ? d3
-                  .select(jx[ix])
-                  .transition()
-                  .duration(500)
-                  .attr("opacity", 0.99)
-                  .attr("stroke-opacity", 1)
-              : d3
-                  .select(jx[ix])
-                  .transition()
-                  .duration(500)
-                  .attr("opacity", 0.1)
-                  .attr("stroke-opacity", 0.8);
+            if (dx.FoodEng === d) {
+              d3
+                .select(jx[ix])
+                .transition()
+                .duration(150)
+                .attr("fill-opacity", 1)
+                .attr("stroke-opacity", 1);
+
+              this.create_Radial_Gutter_Annotations(dx);
+            } else {
+              d3
+                .select(jx[ix])
+                .transition()
+                .duration(100)
+                .attr("fill-opacity", 0.07)
+                .attr("stroke-opacity", 0.1);
+            }
           });
-        // .attr("opacity", dx => {
-        //   dx.FoodEng !== d ? 0 : 0;
-        // });
 
-        // console.log(this.mArrivals);
+        // //Creating the circular gutter
+        // this.container
+        //   .append("g")
+        //   .attr("class", "radialGutter")
+        //   .append("path")
+        //   .attr(
+        //     "transform",
+        //     "translate(" +
+        //       this.props.width / 2 +
+        //       "," +
+        //       this.props.height / 2 +
+        //       ")"
+        //   )
+        //   .attr(
+        //     "d",
+        //     d3
+        //       .arc()
+        //       .innerRadius(this.max_radius + 10)
+        //       .outerRadius(this.max_radius + 29)
+        //       .startAngle(-6 * this.partition_degree)
+        //       .endAngle(6 * this.partition_degree)
+        //   )
+        //   .transition()
+        //   .duration(150)
+        //   .attr("fill", "none")
+        //   .attr("stroke", "hotpink")
+        //   .attr("stroke-width", 1.5)
+        //   .attr("stroke-opacity", 0.2);
 
-        // .attr("stroke-width", "3")
-        // .merge(this.circles)
-        // .attr("r", d => d.Arrival / 3000) //TODO: Creating a log like scale
-        // .attr("fill", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20))
-        // .attr("stroke", d => colorScale(this.food_key.indexOf(d.FoodEng) / 20));
+        //Centre of the circle annotation
+        //First clearing the previous one FIXME: Wrong: should be in mouseout
+        d3.select("g.centralAnnotation").remove();
+
+        let centralAnnotationContainer = this.container
+          .append("g")
+          .attr("class", "centralAnnotation");
+
+        centralAnnotationContainer
+          .append("text")
+          .attr("text-anchor", "middle")
+          .attr(
+            "transform",
+
+            "translate(" +
+              this.props.width / 2 +
+              "," +
+              (this.props.height / 2 - 20) +
+              ")"
+          )
+          .text(d);
+
+        centralAnnotationContainer
+          .append("text")
+          .attr("text-anchor", "middle")
+          .attr(
+            "transform",
+
+            "translate(" +
+              this.props.width / 2 +
+              "," +
+              this.props.height / 2 +
+              ")"
+          )
+          .text("States");
+
+        centralAnnotationContainer
+          .selectAll("rect.centralAnnotation")
+          .data(this.allStates_in_year[i])
+          .enter()
+          .append("rect")
+          // .attr("class", "centralAnnotation")
+          .attr("transform", (dx, ix) => {
+            return (
+              "translate(" +
+              this.props.width / 2 +
+              "," +
+              (this.props.height / 2 + (ix + 1) * 13) +
+              ")"
+            );
+          })
+          .attr("x", dx => -dx.length * 6.2 / 2)
+          .attr("y", -10)
+          .attr("width", dx => dx.length * 6.2)
+          .attr("height", 13)
+          .attr("fill", dx => regionColorScale(this.stateRegionKeys[dx]))
+          .attr("fill-opacity", 0.75);
+
+        centralAnnotationContainer
+          .selectAll("text.centralAnnotation")
+          .data(this.allStates_in_year[i])
+          .enter()
+          .append("text")
+          .attr("fill", "white")
+          .attr("text-anchor", "middle")
+          .attr("font-size", 10) //FIXME: Make it legible. what stroke color?
+          .attr("transform", (dx, ix) => {
+            return (
+              "translate(" +
+              this.props.width / 2 +
+              "," +
+              (this.props.height / 2 + (ix + 1) * 13) +
+              ")"
+            );
+          })
+          .text(dx => dx);
       });
 
+    //Adding Food Names in rings (annot partition rings)
     let annot_partition_annotations = arcChartContainer
       .append("svg")
       .attr("class", "annot_partition_Annotations_container")
@@ -852,15 +960,16 @@ class RadialCustom extends Component {
       .data(this.ring_key)
       .enter()
       .append("text")
+      .attr("pointer-events", "none")
       .attr("class", "ring_annot")
-      .style("fill", "red")
+      .attr("fill", "black")
       .attr("stroke-width", 1)
       .attr("x", 1)
       .attr("dy", 0)
       .attr("font-size", this.arc_height + this.props.bg_ring_gap)
       .append("textPath")
       .attr("startOffset", "50%")
-      .style("text-anchor", "middle")
+      .attr("text-anchor", "middle")
       .attr("xlink:href", (d, i) => {
         // let partition_no = j[0].parentNode.__data__;
         return "#" + this.props.containerId + "hiddenArc" + i;
@@ -872,7 +981,7 @@ class RadialCustom extends Component {
       .select("body")
       .append("div")
       .attr("class", "tooltip")
-      .style("opacity", 0);
+      .attr("opacity", 0);
 
     // Adding groups and Data for arcs (this.arc)
     let minor_arcContainer = arcChartContainer
@@ -911,10 +1020,14 @@ class RadialCustom extends Component {
       )
       .attr("stroke-width", this.arc_height / 25)
       .on("mouseover", (d, i, j) => {
+        console.log("helo");
+
+        d3.event.stopPropagation();
+
         div
           .transition()
           .duration(200)
-          .style("opacity", 0.9);
+          .attr("opacity", 0.9);
 
         div
           .html(
@@ -924,8 +1037,60 @@ class RadialCustom extends Component {
               " " +
               this.stateRegionKeys[d]
           )
-          .style("left", d3.event.pageX + "px")
-          .style("top", d3.event.pageY - 10 + "px");
+          .attr("left", d3.event.pageX + "px")
+          .attr("top", d3.event.pageY - 10 + "px");
+      });
+  };
+
+  create_Radial_Gutter_Annotations = dx => {
+    //Adding Arrival Qty Text
+    // Have to jump the partition 6 here in selector itself
+    const partition_no = this.partition_key.indexOf(dx.Month);
+    let selector;
+    if (partition_no >= 6) {
+      selector = "g#partition" + (partition_no + 1);
+    } else {
+      selector = "g#partition" + partition_no;
+    }
+
+    this.container
+      .select(selector)
+      .append("text")
+      .attr("class", "arrivalQtyText")
+      .attr("font-size", 13)
+      .attr("dy", d => {
+        // Code for adjusting the dy for the reversed arcs (partition 4,5,7,8)
+        if (d in { 5: 0, 4: 0, 8: 0, 7: 0 }) return this.arc_height + 22 + 5;
+        else return -20 - 5;
+      })
+      .each((d, i, j) => {
+        console.log(d, i, j);
+
+        //Adding Month Names
+        d3
+          .select(j[i])
+          .append("textPath")
+          .attr("startOffset", "50%")
+          .attr("text-anchor", "middle")
+          .attr("fill", () => colors[this.food_key.indexOf(dx.FoodEng)])
+          .attr("stroke", "black") //() => colors[this.food_key.indexOf(dx.FoodEng)])
+          .attr("stroke-width", 0.25)
+          .transition()
+          .delay(20)
+          .attr(
+            "xlink:href",
+            "#" +
+              this.props.containerId +
+              "HiddenPartition" +
+              d +
+              "ring" +
+              this.lastringid
+          )
+          .text(d => {
+            if (dx.Arrival / 1000 < 1) {
+              return dx.Arrival.toFixed(0) + " Ton";
+            } else return Math.round(dx.Arrival / 1000) + "k Ton";
+          });
       });
   };
 
